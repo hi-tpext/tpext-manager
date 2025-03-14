@@ -204,32 +204,58 @@ class Extension extends Controller
                         $envStr = file_get_contents(App::getRootPath() . '.env');
                     } else if (is_file(App::getRootPath() . '.example.env')) {
                         $envStr = file_get_contents(App::getRootPath() . '.example.env');
+                    }
+
+                    $tplStr = '';
+
+                    if (ExtLoader::isTP80()) {
+
+                        $tplStr = "# DATABASE" . PHP_EOL
+                            . "DB_TYPE = mysql" . PHP_EOL
+                            . "DB_HOST = @hostname" . PHP_EOL
+                            . "DB_NAME = @database" . PHP_EOL
+                            . "DB_USER = @username" . PHP_EOL
+                            . "DB_PASS = @password" . PHP_EOL
+                            . "DB_PORT = @hostport" . PHP_EOL
+                            . "DB_CHARSET = @charset" . PHP_EOL
+                            . "DB_PREFIX = @prefix" . PHP_EOL
+                            . "# DATABASE END" . PHP_EOL;
+
+                        $replace = ['hostname', 'database', 'username', 'password', 'hostport', 'charset', 'prefix'];
+
+                        foreach ($replace as $rep) {
+                            $val = $data[$rep];
+                            $tplStr = str_replace('@' . $rep, $val, $tplStr);
+                        }
+
+                        $envStr = str_replace(['# DATABASE', '# DATABASE END'], '', $envStr);
+                        $envStr = preg_replace('/DB_\w+?\s*=.*?\n/is', '', $envStr);
+                        $envStr .= $tplStr;
                     } else {
-                        $envStr = "[DATABASE]";
+
+                        if (!strstr($envStr, '[DATABASE]')) {
+                            $envStr .= PHP_EOL . "[DATABASE]" . PHP_EOL;
+                        }
+
+                        $tplStr = "[DATABASE]" . PHP_EOL
+                            . "TYPE = mysql" . PHP_EOL
+                            . "HOSTNAME = @hostname" . PHP_EOL
+                            . "DATABASE = @database" . PHP_EOL
+                            . "USERNAME = @username" . PHP_EOL
+                            . "PASSWORD = @password" . PHP_EOL
+                            . "HOSTPORT = @hostport" . PHP_EOL
+                            . "CHARSET = @charset" . PHP_EOL
+                            . "PREFIX = @prefix" . PHP_EOL;
+
+                        $replace = ['hostname', 'database', 'username', 'password', 'hostport', 'charset', 'prefix'];
+
+                        foreach ($replace as $rep) {
+                            $val = $data[$rep];
+                            $tplStr = str_replace('@' . $rep, $val, $tplStr);
+                        }
+
+                        $envStr = preg_replace('/\[DATABASE\][^\[\]]*/is', $tplStr, $envStr) . PHP_EOL;
                     }
-
-                    $tplStr = ""
-                        . "[DATABASE]" . PHP_EOL
-                        . "TYPE = mysql" . PHP_EOL
-                        . "HOSTNAME = @hostname" . PHP_EOL
-                        . "DATABASE = @database" . PHP_EOL
-                        . "USERNAME = @username" . PHP_EOL
-                        . "PASSWORD = @password" . PHP_EOL
-                        . "HOSTPORT = @hostport" . PHP_EOL
-                        . "CHARSET = @charset" . PHP_EOL
-                        . "PREFIX = @prefix" . PHP_EOL
-                        . "DEBUG = true" . PHP_EOL;
-
-                    //
-
-                    $replace = ['hostname', 'database', 'username', 'password', 'hostport', 'charset', 'prefix'];
-
-                    foreach ($replace as $rep) {
-                        $val = $data[$rep];
-                        $tplStr = str_replace('@' . $rep, $val, $tplStr);
-                    }
-
-                    $envStr = preg_replace('/\[DATABASE\][^\[\]]*/is', $tplStr, $envStr) . PHP_EOL;
 
                     file_put_contents(App::getRootPath() . '.env', $envStr);
                 }
