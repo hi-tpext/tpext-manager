@@ -242,24 +242,24 @@ class ExtensionLogic
 
         while (false !== ($file = readdir($dir))) {
 
-            if (($file != '.') && ($file != '..') && ($file != '.git')) {
+            if (!in_array($file, ['.', '..', '.git', '.svn', '.idea', '.vscode', '.DS_Store', 'assets', 'controller'])) {
 
                 $sonDir = $path . DIRECTORY_SEPARATOR . $file;
 
                 if (is_dir($sonDir)) {
                     $extends = array_merge($extends, $this->scanExtends($sonDir));
-                } else {
+                } else if (strstr($file, '.php')) {
 
                     if (preg_match('/.+?\\\extend\\\(.+?)\.php$/i', str_replace('/', '\\', $sonDir), $mtches)) {
-
-                        $content = file_get_contents($sonDir); //通过文件内容判断是否为扩展。class_exists方式的$autoload有点问题
-
+                        //通过文件内容判断是否为扩展。class_exists方式的$autoload有点问题
+                        $content = file_get_contents($sonDir);
                         if (
-                            preg_match('/is_tpext_extension/i', $content) //在扩展中加个注释表明是扩展。如下：
-                            //is_tpext_extension
+                            //在扩展中加个注释表明是扩展。如下：
+                            /*tpext_extension*/
+                            //或
                             /*is_tpext_extension*/
-                            ||
-                            (preg_match('/\$version\s*=/i', $content)
+                            preg_match('/is_tpext_extension/i', $content)
+                            || (preg_match('/\$version\s*=/i', $content)
                                 && preg_match('/\$name\s*=/i', $content)
                                 && preg_match('/\$title\s*=/i', $content)
                                 && preg_match('/\$description\s*=/i', $content)
