@@ -11,15 +11,15 @@ use tpext\common\ExtLoader;
 use tpext\common\TpextCore;
 use Webman\Config as WConfig;
 use tpext\manager\common\Module;
+use tpext\builder\common\Table;
 use tpext\builder\common\Builder;
 use tpext\common\Module as BaseModule;
-use tpext\builder\traits\actions\HasBase;
-use tpext\builder\traits\actions\HasIndex;
 use tpext\builder\common\Module as builderRes;
 use tpext\manager\common\logic\ExtensionLogic;
 use tpext\common\model\Extension as ExtensionModel;
 use tpext\lightyearadmin\common\Resource as LightyearRes;
 use tpext\builder\mdeditor\common\Resource as MdeditorRes;
+use think\exception\HttpResponseException;
 
 /**
  * Undocumented class
@@ -27,9 +27,6 @@ use tpext\builder\mdeditor\common\Resource as MdeditorRes;
  */
 class Extension extends Controller
 {
-    use HasBase;
-    use HasIndex;
-
     protected $extensions = [];
 
     protected $remote = 0;
@@ -50,7 +47,7 @@ class Extension extends Controller
 
     protected function initialize()
     {
-        $this->pageTitle = '扩展管理';
+        $this->checkUi();
 
         $this->extensionLogic = new ExtensionLogic;
 
@@ -74,14 +71,61 @@ class Extension extends Controller
     }
 
     /**
-     * 构建搜索
-     *
+     * 检测ui-builder扩展是否安装
+     * 
+     * @throws \think\exception\HttpResponseException
      * @return void
      */
-    protected function buildSearch()
+    protected function checkUi()
     {
-        $search = $this->search;
-        $search->tabLink('remote')->options([0 => '本地', 1 => '远程']);
+        if (!class_exists(Builder::class)) {
+
+            $ulArr = ['composer require ichynul/tpext-vexipui:^5.0.1', 'composer require ichynul/tpext-tinyvue:^5.0.1', 'composer require ichynul/tpext-builder:^3.0.1'];
+            $content = '<h3>请先安装ui-builder扩展</h3><pre>请安装以下其中一个扩展：' . PHP_EOL . implode(PHP_EOL . '或' . PHP_EOL, $ulArr) . '</pre>';
+
+            if (ExtLoader::isWebman()) {
+                $content .= '<a target="_blank" href="https://github.com/hi-tpext/tpext-myadmin/tree/4.5">详细说明</a>';
+                $response = new \Webman\Http\Response(200, [], $content);
+            } else {
+                $content .= '<a target="_blank" href="https://github.com/hi-tpext/tpext-myadmin/tree/5.0">详细说明</a>';
+                $response = \think\Response::create($content);
+            }
+
+            throw new HttpResponseException($response);
+        }
+    }
+
+    /**
+     * @title 扩展列表
+     * @return mixed
+     */
+    public function index()
+    {
+        if (request()->isAjax()) {
+            request()->withPost(request()->get()); //兼容以post方式获取参数
+        }
+
+        $builder = Builder::getInstance('扩展管理', __blang('bilder_page_index_text'));
+
+        $tab = $builder->tab();
+
+        $localTable = $tab->table('本地')->tableId('local');
+        $remoteTable = $tab->table('远程')->tableId('remote');
+
+        $this->buildTableByRemote(0, $localTable);
+        $this->buildTableByRemote(1, $remoteTable);
+
+        $fetchData = input('__fetch_data__') || request()->isAjax();
+        $tableId = input('__table__');
+        if ($fetchData == 'y') {
+            if ($tableId == 'local') {
+                return $localTable->partial()->render();
+            } else {
+                return $remoteTable->partial()->render();
+            }
+        }
+
+        return $builder->render();
     }
 
     /**
@@ -187,7 +231,12 @@ class Extension extends Controller
             try {
 
                 if (ExtLoader::isWebman()) {
-                    $databaseStr = file_get_contents(App::getConfigPath() . 'thinkorm.php');
+                    $configFile = 'think-orm.php'; //v2
+                    if (!is_file(App::getConfigPath() . $configFile)) {
+                        $configFile = 'thinkorm.php'; // v1
+                    }
+
+                    $databaseStr = file_get_contents(App::getConfigPath() . $configFile);
 
                     $replace = ['hostname', 'database', 'username', 'password', 'hostport', 'charset', 'prefix'];
 
@@ -196,7 +245,7 @@ class Extension extends Controller
                         $databaseStr = preg_replace('/([\'\"]' . $rep . '[\'\"]\s*=>\s*)[\'\"][^\'\"]*?[\'\"]/', "$1'{$val}'", $databaseStr);
                     }
 
-                    file_put_contents(App::getConfigPath() . 'thinkorm.php', $databaseStr);
+                    file_put_contents(App::getConfigPath() . $configFile, $databaseStr);
                 } else {
                     $envStr = '';
 
@@ -369,29 +418,24 @@ class Extension extends Controller
     }
 
     /**
-     * 生成数据，如数据不是从`$this->dataModel`得来时，可重写此方法
-     * 比如使用db()助手方法、多表join、或以一个自定义数组为数据源
-     *
-     * @param array $where
-     * @param string $sortOrder
+     * @param int $remote
      * @param integer $page
+     * @param integer $pagesize
      * @param integer $total
-     * @return array|\think\Collection|\Generator
+     * @return array
      */
-    protected function buildDataList($where = [], $sortOrder = '', $page = 1, &$total = -1)
+    protected function getDataList($remote = 0, $page = 1, $pagesize = 20, &$total = -1)
     {
         $data = [];
         $total = 0;
 
-        $this->remote = input('remote');
-
-        if ($this->remote) {
+        if ($remote) {
 
             $data = $this->extensionLogic->getRemoteJson();
 
             $total = count($data);
 
-            $data = array_slice($data, ($page - 1) * $this->pagesize, $this->pagesize);
+            $data = array_slice($data, ($page - 1) * $pagesize, $pagesize);
 
             $installed = ExtLoader::getInstalled(true);
 
@@ -429,7 +473,7 @@ class Extension extends Controller
 
             $total = count($this->extensions);
 
-            $extensions = array_slice($this->extensions, ($page - 1) * $this->pagesize, $this->pagesize);
+            $extensions = array_slice($this->extensions, ($page - 1) * $pagesize, $pagesize);
 
             $installed = ExtLoader::getInstalled(true);
 
@@ -499,13 +543,14 @@ class Extension extends Controller
 
     /**
      * 构建表格
-     *
+     * @param int $remote
+     * @param Table $table
      * @return void
      */
-    protected function buildTable(&$data = [], $isExporting = false)
+    protected function buildTableByRemote($remote, $table)
     {
-        $table = $this->table;
         $first_install = input('first_install', 0);
+        $page = input('__page__/d', 1);
 
         $table->show('title', '标题');
         $table->show('name', '标识');
@@ -518,7 +563,7 @@ class Extension extends Controller
         $table->show('tags', '分类');
         $table->show('description', '介绍')->getWrapper()->addStyle('width:40%;');
 
-        if ($this->remote) {
+        if ($remote) {
             $table->show('now_version', '已下载版本号');
             $table->show('version', '最新版本号');
             $table->match('download', '下载')->options([0 => '未下载', 1 => '已下载'])->mapClassGroup([[0, 'default'], [1, 'success']]);
@@ -580,16 +625,32 @@ class Extension extends Controller
                 ]);
         }
 
+        if (!$remote) {
+            $table->getToolbar()
+                ->btnLink(url('import'), 'zip包上传', 'btn-pink', 'mdi-cloud-upload', 'data-layer-szie="400px,250px" title="zip包上传扩展"');
+        }
+
         $table->getToolbar()
-            ->btnLink(url('import'), 'zip包上传', 'btn-pink', 'mdi-cloud-upload', 'data-layer-szie="400px,250px" title="zip包上传扩展"')
             ->btnRefresh()
             ->html('<label class="label label-default">注意：部分扩展同时支持`composer`和`extend`模式。同一个扩展不能同时安装两种模式的，或跨模式升级。</label>')->pullRight();
 
         $table->useCheckbox(false);
-        $table->useChooseColumns(false); //切换远程和本地表格列不同，会有问题，干脆禁用。
+        $table->useExport(false);
+        $table->useChooseColumns(false);
 
         if ($first_install == 1) {
             $table->addBottom()->content()->display('<div style="padding:10px"><h5>首次安装提示：</h5>安装完成点此<a href="' . url('/admin/index') . '">[进入后台]</a><br>此页面排版错乱？点此<a href="' . url('prepare') . '">[刷新]</a>样式资源</div>');
+        }
+
+        $pagesize = 14;
+        //延迟加载数据
+        $fetchData = input('__fetch_data__');
+        if (!$remote || $fetchData == 'y') {
+            $data = $this->getDataList($remote, $page, $pagesize, $total);
+            $table->fill($data);
+            $table->paginator($total, $pagesize);
+        } else {
+            $table->paginator(1000, $pagesize);
         }
     }
 
@@ -844,11 +905,11 @@ class Extension extends Controller
             $findKey = str_replace('\\', '-', $findKey);
 
             if ($findInstall) {
-                $upgradeUrl = url('upgrade', ['key' => $findKey, 'from_update' => 1])->__toString();
+                $upgradeUrl = (string)url('upgrade', ['key' => $findKey, 'from_update' => 1]);
 
                 $builder->content()->display('<h5>下载最新压缩包成功，您需要安装才能体验最新功能，<a class="btn btn-xs btn-success" href="{$url|raw}">点此去升级</a></h5><script>parent.$(".search-refresh").trigger("click");</script>', ['url' => $upgradeUrl]);
             } else {
-                $installUrl = url('install', ['key' => $findKey])->__toString();
+                $installUrl = (string)url('install', ['key' => $findKey]);
 
                 $builder->content()->display('<h5>下载最新压缩包成功，您需要安装才能体验最新功能，<a class="btn btn-xs btn-success" href="{$url|raw}">点此去安装</a></h5><script>parent.$(".search-refresh").trigger("click");</script>', ['url' => $installUrl]);
             }
@@ -952,7 +1013,7 @@ class Extension extends Controller
 
             $findKey = str_replace('\\', '-', $findKey);
 
-            $installUrl = url('install', ['key' => $findKey])->__toString();
+            $installUrl = (string)url('install', ['key' => $findKey]);
 
             $builder->content()->display('<h5>下载最新压缩包成功，您需要安装才能体验最新功能，<a class="btn btn-xs btn-success" href="{$url|raw}">点此去安装</a></h5><script>parent.$(".search-refresh").trigger("click");</script>', ['url' => $installUrl]);
             return $builder->render();
