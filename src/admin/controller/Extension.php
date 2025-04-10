@@ -9,10 +9,9 @@ use think\facade\Session;
 use tpext\common\ExtLoader;
 use tpext\common\TpextCore;
 use tpext\manager\common\Module;
+use tpext\builder\common\Table;
 use tpext\builder\common\Builder;
 use tpext\common\Module as BaseModule;
-use tpext\builder\traits\actions\HasBase;
-use tpext\builder\traits\actions\HasIndex;
 use tpext\builder\common\Module as builderRes;
 use tpext\manager\common\logic\ExtensionLogic;
 use tpext\common\model\Extension as ExtensionModel;
@@ -25,9 +24,6 @@ use tpext\builder\mdeditor\common\Resource as MdeditorRes;
  */
 class Extension extends Controller
 {
-    use HasBase;
-    use HasIndex;
-
     protected $extensions = [];
 
     protected $remote = 0;
@@ -48,8 +44,6 @@ class Extension extends Controller
 
     protected function initialize()
     {
-        $this->pageTitle = '扩展管理';
-
         $this->extensionLogic = new ExtensionLogic;
 
         $this->extensionLogic->getExtendExtensions(true);
@@ -66,14 +60,36 @@ class Extension extends Controller
     }
 
     /**
-     * 构建搜索
-     *
-     * @return void
+     * @title 列表
+     * @return mixed
      */
-    protected function buildSearch()
+    public function index()
     {
-        $search = $this->search;
-        $search->tabLink('remote')->options([0 => '本地', 1 => '远程']);
+        if (request()->isAjax()) {
+            request()->withPost(request()->get()); //兼容以post方式获取参数
+        }
+
+        $builder = Builder::getInstance('扩展管理', __blang('bilder_page_index_text'));
+
+        $tab = $builder->tab();
+
+        $localTable = $tab->table('本地')->tableId('local');
+        $remoteTable = $tab->table('远程')->tableId('remote');
+
+        $this->buildTableByRemote(0, $localTable);
+        $this->buildTableByRemote(1, $remoteTable);
+
+        $fetchData = input('__fetch_data__') || request()->isAjax();
+        $tableId = input('__table__');
+        if ($fetchData == 'y') {
+            if ($tableId == 'local') {
+                return $localTable->partial()->render();
+            } else {
+                return $remoteTable->partial()->render();
+            }
+        }
+
+        return $builder->render();
     }
 
     /**
@@ -279,29 +295,24 @@ class Extension extends Controller
     }
 
     /**
-     * 生成数据，如数据不是从`$this->dataModel`得来时，可重写此方法
-     * 比如使用db()助手方法、多表join、或以一个自定义数组为数据源
-     *
-     * @param array $where
-     * @param string $sortOrder
+     * @param int $remote
      * @param integer $page
+     * @param integer $pagesize
      * @param integer $total
-     * @return array|\think\Collection|\Generator
+     * @return array
      */
-    protected function buildDataList($where = [], $sortOrder = '', $page = 1, &$total = -1)
+    protected function getDataList($remote = 0, $page = 1, $pagesize = 20, &$total = -1)
     {
         $data = [];
         $total = 0;
 
-        $this->remote = input('remote');
-
-        if ($this->remote) {
+        if ($remote) {
 
             $data = $this->extensionLogic->getRemoteJson();
 
             $total = count($data);
 
-            $data = array_slice($data, ($page - 1) * $this->pagesize, $this->pagesize);
+            $data = array_slice($data, ($page - 1) * $pagesize, $pagesize);
 
             $installed = ExtLoader::getInstalled(true);
 
@@ -339,7 +350,7 @@ class Extension extends Controller
 
             $total = count($this->extensions);
 
-            $extensions = array_slice($this->extensions, ($page - 1) * $this->pagesize, $this->pagesize);
+            $extensions = array_slice($this->extensions, ($page - 1) * $pagesize, $pagesize);
 
             $installed = ExtLoader::getInstalled(true);
 
@@ -409,13 +420,14 @@ class Extension extends Controller
 
     /**
      * 构建表格
-     *
+     * @param int $remote
+     * @param Table $table
      * @return void
      */
-    protected function buildTable(&$data = [], $isExporting = false)
+    protected function buildTableByRemote($remote, $table)
     {
-        $table = $this->table;
         $first_install = input('first_install', 0);
+        $page = input('__page__/d', 1);
 
         $table->show('title', '标题');
         $table->show('name', '标识');
@@ -428,7 +440,7 @@ class Extension extends Controller
         $table->show('tags', '分类');
         $table->show('description', '介绍')->getWrapper()->addStyle('width:40%;');
 
-        if ($this->remote) {
+        if ($remote) {
             $table->show('now_version', '已下载版本号');
             $table->show('version', '最新版本号');
             $table->match('download', '下载')->options([0 => '未下载', 1 => '已下载'])->mapClassGroup([[0, 'default'], [1, 'success']]);
@@ -490,16 +502,32 @@ class Extension extends Controller
                 ]);
         }
 
+        if (!$remote) {
+            $table->getToolbar()
+                ->btnLink(url('import'), 'zip包上传', 'btn-pink', 'mdi-cloud-upload', 'data-layer-szie="400px,250px" title="zip包上传扩展"');
+        }
+
         $table->getToolbar()
-            ->btnLink(url('import'), 'zip包上传', 'btn-pink', 'mdi-cloud-upload', 'data-layer-szie="400px,250px" title="zip包上传扩展"')
             ->btnRefresh()
             ->html('<label class="label label-default">注意：部分扩展同时支持`composer`和`extend`模式。同一个扩展不能同时安装两种模式的，或跨模式升级。</label>')->pullRight();
 
         $table->useCheckbox(false);
-        $table->useChooseColumns(false); //切换远程和本地表格列不同，会有问题，干脆禁用。
+        $table->useExport(false);
+        $table->useChooseColumns(false);
 
         if ($first_install == 1) {
             $table->addBottom()->content()->display('<div style="padding:10px"><h5>首次安装提示：</h5>安装完成点此<a href="' . url('/admin/index') . '">[进入后台]</a><br>此页面排版错乱？点此<a href="' . url('prepare') . '">[刷新]</a>样式资源</div>');
+        }
+
+        $pagesize = 14;
+        //延迟加载数据
+        $fetchData = input('__fetch_data__');
+        if (!$remote || $fetchData == 'y') {
+            $data = $this->getDataList($remote, $page, $pagesize, $total);
+            $table->fill($data);
+            $table->paginator($total, $pagesize);
+        } else {
+            $table->paginator(1000, $pagesize);
         }
     }
 
