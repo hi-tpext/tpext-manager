@@ -260,7 +260,7 @@ class Creator extends Controller
                 $field['FIELD_RELATION'] = 'selectpage';
             } else if (preg_match('/^(\w+)_id$/i', $field['COLUMN_NAME'], $mch)) {
                 $field['DISPLAYER_TYPE'] = 'select';
-                $field['FIELD_RELATION'] = '/admin/i' . strtolower(Str::studly($mch[1])) . '/selectpage';
+                $field['FIELD_RELATION'] = '/admin/' . strtolower(Str::studly($mch[1])) . '/selectpage';
             } else if (preg_match('/^(\w+)_ids$/i', $field['COLUMN_NAME'], $mch)) {
                 $field['DISPLAYER_TYPE'] = 'multipleSelect';
                 $field['FIELD_RELATION'] = '/admin/' . strtolower(Str::studly($mch[1])) . '/selectpage';
