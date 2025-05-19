@@ -175,8 +175,27 @@ class Creator extends Controller
         foreach ($fields as &$field) {
             $field['DISPLAYER_TYPE'] = 'show';
 
-            if (!preg_match('/^(?:updated?_time|updated?_at)$/i', $field['COLUMN_NAME']) && !in_array($field['COLUMN_NAME'], ['id', 'sort'])) {
-                $field['ATTR'] = ['search'];
+            $hasSearch = true;
+            if (preg_match('/^\w*?(?:openid|salt|token)$/i', $field['COLUMN_NAME'])) {
+                $hasSearch = false;
+            } else if (preg_match('/^\w*?(?:img|image|pic|photo|avatar|logo)s?$/i', $field['COLUMN_NAME'])) {
+                $hasSearch = false;
+            } else if (preg_match('/^\w*?(?:file|video|audio|pkg)s?$/i', $field['COLUMN_NAME'])) {
+                $hasSearch = false;
+            } else if (preg_match('/^\w*?icon$/i', $field['COLUMN_NAME'])) {
+                $hasSearch = false;
+            } else if (preg_match('/^(?:delete_time|delete_at)$/i', $field['COLUMN_NAME'])) {
+                $hasSearch = false;
+            } else if (preg_match('/^\w*?(?:map|lat|lng|latitude|longitude)$/i', $field['COLUMN_NAME'])) {
+                $hasSearch = false;
+            } else if (preg_match('/^\w*?(?:number|num|quantity|qty)$/i', $field['COLUMN_NAME'])) {
+                $hasSearch = false;
+            } else if (preg_match('/^(?:updated?_time|updated?_at)$/i', $field['COLUMN_NAME']) || in_array($field['COLUMN_NAME'], ['id', 'sort'])) {
+                $hasSearch = false;
+            }
+
+            if ($hasSearch) {
+                $field['ATTR'][] = 'search';
             }
 
             $field['FIELD_RELATION'] = '';
@@ -215,7 +234,7 @@ class Creator extends Controller
                 $field['DISPLAYER_TYPE'] = 'file';
             } else if (preg_match('/^\w*?(?:file|video|audio|pkg)s$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'files';
-            } else if (preg_match('/^is_\w+|has_\w+|on_\w+|enabled?$/i', $field['COLUMN_NAME'])) {
+            } else if (preg_match('/^(?:is_\w+|has_\w+|on_\w+|enabled?)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'switchBtn';
             } else if (preg_match('/^\w*?(?:status|state)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'match';
@@ -223,7 +242,21 @@ class Creator extends Controller
                 $field['DISPLAYER_TYPE'] = '_';
             } else if (preg_match('/^\w*?(?:openid|salt|token)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = '_';
+            } else if (preg_match('/^\w*?(?:img|image|pic|photo|avatar|logo)$/i', $field['COLUMN_NAME'])) {
+                $field['DISPLAYER_TYPE'] = '_';
+            } else if (preg_match('/^\w*?(?:img|image|pic|photo|avatar|logo)s$/i', $field['COLUMN_NAME'])) {
+                $field['DISPLAYER_TYPE'] = '_';
+            } else if (preg_match('/^\w*?(?:file|video|audio|pkg)$/i', $field['COLUMN_NAME'])) {
+                $field['DISPLAYER_TYPE'] = '_';
+            } else if (preg_match('/^\w*?(?:file|video|audio|pkg)s$/i', $field['COLUMN_NAME'])) {
+                $field['DISPLAYER_TYPE'] = '_';
+            } else if (preg_match('/^\w*?icon$/i', $field['COLUMN_NAME'])) {
+                $field['DISPLAYER_TYPE'] = '_';
             } else if (preg_match('/^(?:delete_time|delete_at)$/i', $field['COLUMN_NAME'])) {
+                $field['DISPLAYER_TYPE'] = '_';
+            } else if (preg_match('/^\w*?(?:map|lat|lng|latitude|longitude)$/i', $field['COLUMN_NAME'])) {
+                $field['DISPLAYER_TYPE'] = '_';
+            } else if (preg_match('/^\w*?(?:number|num|quantity|qty)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = '_';
             }
         }
@@ -277,15 +310,15 @@ class Creator extends Controller
                 $field['DISPLAYER_TYPE'] = '_';
             } else if (preg_match('/^(?:created?_time|add_time|created?_at|updated?_time|updated?_at)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'show';
-            } else if (preg_match('/time/', $field['COLUMN_NAME']) || preg_match('/date|datetime|timestamp/i', $field['COLUMN_TYPE'])) {
-                $field['DISPLAYER_TYPE'] = 'datetime';
-            } else if (preg_match('/date/', $field['COLUMN_NAME']) || preg_match('/date|datetime|timestamp/i', $field['COLUMN_TYPE'])) {
+            } else if (preg_match('/date$/', $field['COLUMN_NAME']) || preg_match('/date$/i', $field['COLUMN_TYPE'])) {
                 $field['DISPLAYER_TYPE'] = 'date';
+            } else if (preg_match('/time$/', $field['COLUMN_NAME']) || preg_match('/(?:datetime|timestamp)$/i', $field['COLUMN_TYPE'])) {
+                $field['DISPLAYER_TYPE'] = 'datetime';
             } else if (preg_match('/^\w*?content$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'editor';
-            } else if (preg_match('/^\w*?(remark|desc|description)$/i', $field['COLUMN_NAME'])) {
+            } else if (preg_match('/^\w*?(?:remark|desc|description)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'textarea';
-            } else if (preg_match('/^is_\w+|has_\w+|on_\w+|enabled?$/i', $field['COLUMN_NAME'])) {
+            } else if (preg_match('/^(?:is_\w+|has_\w+|on_\w+|enabled?)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'switchBtn';
             } else if (preg_match('/^\w*?(?:status|state)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'radio';
@@ -295,7 +328,7 @@ class Creator extends Controller
                 $field['DISPLAYER_TYPE'] = 'show';
             } else if (preg_match('/^\w*?(?:tags|kwds)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'tags';
-            } else if (preg_match('/^\w*?map$/i', $field['COLUMN_NAME'])) {
+            } else if (preg_match('/^\w*?(?:map|lat|lng|latitude|longitude)$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'map';
             } else if (preg_match('/^\w*?color$/i', $field['COLUMN_NAME'])) {
                 $field['DISPLAYER_TYPE'] = 'color';
