@@ -420,7 +420,7 @@ EOT;
      * Undocumented function
      * @title 查看设置
      * 
-     * @return void
+     * @return mixed
      */
     public function view()
     {
@@ -485,7 +485,7 @@ EOT;
             if (isset($fieldTypes[$key])) {
                 $type = $fieldTypes[$key];
 
-                $fieldType = strtolower($type['type']);
+                $fieldType = $type['type'];
 
                 $label = isset($type['label']) ? $type['label'] : '';
                 $help = isset($type['help']) ? $type['help'] : '';
@@ -515,7 +515,7 @@ EOT;
                 if ($afterSymbol) {
                     $field->afterSymbol($afterSymbol);
                 }
-                if (in_array($fieldType, ['radio', 'select', 'checkbox', 'multipleselect', 'dualListbox', 'transfer'])) {
+                if (in_array($fieldType, ['radio', 'select', 'checkbox', 'multipleSelect', 'dualListbox', 'transfer'])) {
 
                     $field->options(isset($type['options']) ? $type['options'] : [0 => '为什么没有选项？', 1 => '？项选有没么什为']);
                 }
@@ -541,7 +541,7 @@ EOT;
                 $field = $form->text($key);
             }
 
-            if (!in_array($fieldType, ['checkbox', 'multipleselect', 'matches', 'dualListbox', 'transfer']) && is_array($val)) {
+            if (!in_array($fieldType, ['checkbox', 'multipleSelect', 'matches', 'dualListbox', 'transfer']) && is_array($val)) {
                 $saved[$key] = json_encode($saved[$key], JSON_UNESCAPED_UNICODE);
             }
 

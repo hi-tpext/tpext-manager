@@ -294,7 +294,7 @@ class CreatorLogic
                     if ($field['DISPLAYER_TYPE'] == 'text') {
                         $line .= "->getWrapper()->addStyle('max-width:140px;')";
                     }
-                } else if (in_array($field['DISPLAYER_TYPE'], ['match', 'maches'])) {
+                } else if (in_array($field['DISPLAYER_TYPE'], ['match', 'matches'])) {
                     if (!empty($field['FIELD_RELATION']) && preg_match('/^(\w+)\[(\w+),\s*(\w+)\]$/i', trim($field['FIELD_RELATION']), $mch)) {
                         $line .= "->optionsData(\\think\\facade\\Db::name('{$mch[1]}')->select(), '{$mch[2]}', '{$mch[3]}')";
                     } else {
@@ -418,7 +418,9 @@ class CreatorLogic
 
                     $this->lines[] = "        if (isset(\$searchData['{$field['COLUMN_NAME']}']) && \$searchData['{$field['COLUMN_NAME']}'] != '') {";
 
-                    if (preg_match('/varchar|text/i', $field['COLUMN_TYPE'])) {
+                    if (preg_match('/^(\w+)_ids$/i', $field['COLUMN_NAME'], $mch)) {
+                        $this->lines[] = "            \$where[] = ['{$field['COLUMN_NAME']}', 'in', \$searchData['{$field['COLUMN_NAME']}']];";
+                    } else if (preg_match('/varchar|text/i', $field['COLUMN_TYPE'])) {
                         $this->lines[] = "            \$where[] = ['{$field['COLUMN_NAME']}', 'like', '%' . trim(\$searchData['{$field['COLUMN_NAME']}']) . '%'];";
                     } else {
                         $this->lines[] = "            \$where[] = ['{$field['COLUMN_NAME']}', '=', \$searchData['{$field['COLUMN_NAME']}']];";
@@ -475,6 +477,15 @@ class CreatorLogic
 
             foreach ($data['TABLE_FIELDS'] as $field) {
 
+                if (!empty($data['FORM_FIELDS'])) {
+                    foreach ($data['FORM_FIELDS'] as $formField) {
+                        if ($field['COLUMN_NAME'] == $formField['COLUMN_NAME']) {
+                            $field['FIELD_RELATION'] = $formField['FIELD_RELATION'];
+                            break;
+                        }
+                    }
+                }
+
                 if (preg_match('/^(?:delete_time|delete_at)$/i', $field['COLUMN_NAME'])) {
                     continue;
                 }
@@ -487,10 +498,14 @@ class CreatorLogic
                     }
 
                     if (preg_match('/^(\w+)_id$/i', $field['COLUMN_NAME'], $mch)) {
-                        $this->lines[] = '        $search->select' . "('{$field['COLUMN_NAME']}')->dataUrl(url('theurl'));";
+                        $dataUrl = !empty($field['FIELD_RELATION']) ? "url('{$field['FIELD_RELATION']}')" : "url('theurl')";
+
+                        $this->lines[] = '        $search->select' . "('{$field['COLUMN_NAME']}')->dataUrl({$dataUrl});";
                     } else if (preg_match('/^(\w+)_ids$/i', $field['COLUMN_NAME'], $mch)) {
-                        $this->lines[] = '        $search->multipleSelect' . "('{$field['COLUMN_NAME']}')->dataUrl(url('theurl'));";
-                    } else if (preg_match('/^is_\w+|enabled?$/i', $field['COLUMN_NAME'])) {
+                        $dataUrl = !empty($field['FIELD_RELATION']) ? "url('{$field['FIELD_RELATION']}')" : "url('theurl')";
+
+                        $this->lines[] = '        $search->multipleSelect' . "('{$field['COLUMN_NAME']}')->dataUrl({$dataUrl});";
+                    } else if (preg_match('/^(?:is_\w+|has_\w+|on_\w+|enabled?)$/i', $field['COLUMN_NAME'])) {
                         $this->lines[] = '        $search->select' . "('{$field['COLUMN_NAME']}')->options([]);";
                     } else if (preg_match('/^\w*?(?:status|state)$/i', $field['COLUMN_NAME'])) {
                         $this->lines[] = '        $search->select' . "('{$field['COLUMN_NAME']}')->options([]);";
@@ -562,14 +577,16 @@ class CreatorLogic
                     if (!empty($field['FIELD_RELATION'])) {
                         $line .= "->dataUrl(url('{$field['FIELD_RELATION']}'))";
                     } else {
-                        $line .= "->dataUrl(url('selectpage'))";
+                        $line .= "->dataUrl(url('theurl'))";
                     }
-                } else if (in_array($field['DISPLAYER_TYPE'], ['match', 'maches'])) {
+                } else if (in_array($field['DISPLAYER_TYPE'], ['match', 'matches'])) {
                     if (!empty($field['FIELD_RELATION']) && preg_match('/^(\w+)\[(\w+),\s*(\w+)\]$/i', trim($field['FIELD_RELATION']), $mch)) {
                         $line .= "->optionsData(\\think\\facade\\Db::name('{$mch[1]}')->select(), '{$mch[2]}', '{$mch[3]}')";
                     } else {
                         $line .= "->options([/*选项*/])";
                     }
+                } else if ($field['DISPLAYER_TYPE'] == 'switchBtn') {
+                    $line .= "->default(1)";
                 }
 
                 if (isset($field['ATTR']) && in_array('required', $field['ATTR'])) {
