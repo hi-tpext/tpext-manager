@@ -296,7 +296,7 @@ class ExtensionLogic
             'http' => [
                 'method' => 'GET',
                 'header' => implode("\r\n", $headers),
-                'timeout' => 300 // 超时时间（单位:s）
+                'timeout' => 10 // 超时时间（单位:s）
             ],
             'ssl' => [
                 'verify_peer' => false,
