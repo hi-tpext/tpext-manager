@@ -115,9 +115,9 @@ class Extension extends Controller
         $this->buildTableByRemote(0, $localTable);
         $this->buildTableByRemote(1, $remoteTable);
 
-        $fetchData = input('__fetch_data__') || request()->isAjax();
+        $fetchData = input('__fetch_data__') == 'y' || request()->isAjax();
         $tableId = input('__table__');
-        if ($fetchData == 'y') {
+        if ($fetchData) {
             if ($tableId == 'local') {
                 return $localTable->partial()->render();
             } else {
@@ -478,7 +478,7 @@ class Extension extends Controller
             $installed = ExtLoader::getInstalled(true);
 
             if (empty($installed)) {
-                $this->builder()->notify('已安装扩展为空！请确保数据库连接正常，然后安装[tpext.manager]', 'warning', 2000);
+                $this->error('已安装扩展为空！请确保数据库连接正常，然后安装[tpext.manager]');
             } else {
                 if (!ExtensionModel::where('key', Module::class)->find()) {
 
