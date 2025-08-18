@@ -995,7 +995,7 @@ class Extension extends Controller
 
         ExtLoader::bindExtensions();
 
-        return $builder->layer()->closeRefresh(2, '上传成功');
+        return $builder->layer()->closeRefresh(1, '上传成功');
     }
 
     /**
