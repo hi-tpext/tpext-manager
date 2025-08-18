@@ -9,6 +9,7 @@ use think\facade\Config;
 use think\facade\Session;
 use tpext\common\ExtLoader;
 use tpext\common\TpextCore;
+use tpext\common\RouteLoader;
 use Webman\Config as WConfig;
 use tpext\manager\common\Module;
 use tpext\builder\common\Table;
@@ -174,7 +175,7 @@ class Extension extends Controller
                 $config = [];
 
                 if (ExtLoader::isWebman()) {
-                    $config = array_merge(WConfig::get('thinkorm.connections.mysql', []), $data);
+                    $config = array_merge(WConfig::get('thinkorm.connections.mysql', WConfig::get('think-orm.connections.mysql', [])), $data);
                 } else {
                     $config = array_merge(Config::get('database.connections.mysql', []), $data);
                 }
@@ -213,7 +214,7 @@ class Extension extends Controller
                 $config = [];
 
                 if (ExtLoader::isWebman()) {
-                    $config = array_merge(WConfig::get('thinkorm.connections.mysql', []), $data);
+                    $config = array_merge(WConfig::get('thinkorm.connections.mysql', WConfig::get('think-orm.connections.mysql', [])), $data);
                 } else {
                     $config = array_merge(Config::get('database.connections.mysql', []), $data);
                 }
@@ -628,6 +629,11 @@ class Extension extends Controller
         if (!$remote) {
             $table->getToolbar()
                 ->btnLink(url('import'), 'zip包上传', 'btn-pink', 'mdi-cloud-upload', 'data-layer-szie="400px,250px" title="zip包上传扩展"');
+
+            if (ExtLoader::isWebman()) {
+                $table->getToolbar()
+                    ->btnLink(url('makeRoute'), '生成路由', 'btn-danger', 'mdi-format-strikethrough', 'data-layer-szie="400px,250px" title="为扩展重新生成路由"');
+            }
         }
 
         $table->getToolbar()
@@ -1122,7 +1128,18 @@ class Extension extends Controller
 
         ExtLoader::bindExtensions();
 
-        return $builder->layer()->closeRefresh(2, '上传成功');
+        return $builder->layer()->closeRefresh(1, '上传成功');
+    }
+
+    /**
+     * @title 重新生成路由[webman]
+     */
+    public function makeRoute()
+    {
+        RouteLoader::load(true);
+
+        $builder = Builder::getInstance();
+        return $builder->layer()->closeRefresh(1, '已重新生成路由');
     }
 
     /**
