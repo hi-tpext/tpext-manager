@@ -32,6 +32,7 @@ class DbLogic
         'text' => 'text',
         'mediumtext' => 'mediumtext',
         'longtext' => 'longtext',
+        'json' => 'json',
     ];
 
     public function __construct()
@@ -248,10 +249,10 @@ class DbLogic
                 'DATA_TYPE' => 'int',
                 'LENGTH' => '10',
                 'ATTR' =>
-                [
-                    'auto_inc',
-                    'unsigned',
-                ],
+                    [
+                        'auto_inc',
+                        'unsigned',
+                    ],
             ];
         }
 
@@ -775,7 +776,7 @@ class DbLogic
 
     public function isText($fieldType)
     {
-        return in_array($fieldType, ['tinytext', 'text', 'mediumtext', 'longtext']);
+        return in_array($fieldType, ['tinytext', 'text', 'mediumtext', 'longtext', 'json']);
     }
 
     public function getDataSize($data)
