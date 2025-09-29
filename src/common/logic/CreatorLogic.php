@@ -196,6 +196,15 @@ class CreatorLogic
             $this->lines[] = "    use $action;";
         }
 
+        $indexWith = [];
+        if (!empty($data['TABLE_FIELDS'])) {
+            foreach ($data['TABLE_FIELDS'] as $field) {
+                if ($field['DISPLAYER_TYPE'] == 'belongsTo') {
+                    $indexWith[] = "'" . explode('.', $field['FIELD_RELATION'])[0] . "'";
+                }
+            }
+        }
+
         $this->lines[] = '';
 
         $this->lines[] = '    /**';
@@ -214,7 +223,7 @@ class CreatorLogic
         $this->lines[] = "        \$this->pk = 'id';";
         $this->lines[] = "        \$this->pagesize = 14;";
         $this->lines[] = "        \$this->sortOrder = 'id desc';";
-        $this->lines[] = "        \$this->indexWith = []; //列表页关联";
+        $this->lines[] = "        \$this->indexWith = [" . implode(', ', $indexWith) . "]; //列表页关联";
         $this->lines[] = "        \$this->selectWith = []; //下拉数据关联";
 
         $tableToolbars = $data['table_toolbars'] ?? [];
@@ -694,7 +703,7 @@ class CreatorLogic
         $lines[] = '';
         $lines[] = "use think\Model;";
 
-        $dbLogic  = new DbLogic;
+        $dbLogic = new DbLogic;
 
         $solft_delete = $dbLogic->getFieldInfo($prefix . $table, 'delete_time') ? 1 : 0;
 
@@ -1018,14 +1027,14 @@ class CreatorLogic
             $line = fgets($fileHandle);
 
             if (preg_match('/public\s+function\s+(\w+)\s*\(\)/i', $line, $mch)) {
-                $function  = $mch[1];
+                $function = $mch[1];
             }
 
             //return $this->belongsTo(Member::class, 'member_id', 'id');
             if (preg_match('/\$this\s*->\s*(belongsTo|hasOne|hasMany)\s*\(([^,]+?)(,[^,]+?)?(,[^,]+?)?\)/i', $line, $mch)) {
 
-                $relationType  = $mch[1];
-                $relationClass  = str_replace('::class', '', $mch[2]);
+                $relationType = $mch[1];
+                $relationClass = str_replace('::class', '', $mch[2]);
                 $foreignKey = preg_replace('/\W/', '', $mch[3] ?? '');
                 $localKey = preg_replace('/\W/', '', $mch[4] ?? '');
 
@@ -1034,9 +1043,9 @@ class CreatorLogic
                 if ($relationModel && $relationModel instanceof Model) {
                     if ($relationType == 'belongsTo') {
                         $foreignKey = $foreignKey ?: $this->getForeignKey($relationModel->getName());
-                        $localKey   = $localKey ?: $relationModel->getPk();
+                        $localKey = $localKey ?: $relationModel->getPk();
                     } else {
-                        $localKey   = $localKey ?: $thisModel->getPk();
+                        $localKey = $localKey ?: $thisModel->getPk();
                         $foreignKey = $foreignKey ?: $this->getForeignKey($thisModel->getName());
                     }
 
