@@ -482,6 +482,11 @@ class Creator extends Controller
         }
     }
 
+    /**
+     * Undocumented function
+     * @title 扫描模型关联
+     * @return mixed
+     */
     public function scanModels()
     {
         $modelNamespace = '';
