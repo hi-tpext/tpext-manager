@@ -284,10 +284,10 @@ class DbLogic
                 'DATA_TYPE' => 'int',
                 'LENGTH' => '10',
                 'ATTR' =>
-                    [
-                        'auto_inc',
-                        'unsigned',
-                    ],
+                [
+                    'auto_inc',
+                    'unsigned',
+                ],
             ];
         }
 
@@ -816,6 +816,25 @@ class DbLogic
 
     public function getDataSize($data)
     {
-        return round(($data['AVG_ROW_LENGTH'] * $data['TABLE_ROWS'] + $data['INDEX_LENGTH']) / 1024 / 1024, 2);
+        return round(($data['DATA_LENGTH'] + $data['INDEX_LENGTH']) / 1024 / 1024, 2);
+    }
+
+    public function getDataFreeSize($data)
+    {
+        return round($data['DATA_FREE'] / 1024 / 1024, 2);
+    }
+
+    public function execute($sql)
+    {
+        try {
+            Db::execute($sql);
+        } catch (\Exception $ex) {
+            Log::info($sql);
+            Log::error($ex->__toString());
+            $this->errors[] = $ex->getMessage();
+            return false;
+        }
+
+        return true;
     }
 }
