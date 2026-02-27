@@ -82,7 +82,7 @@ class Dbtable extends Controller
      */
     protected function buildDataList($where = [], $sortOrder = '', $page = 1, &$total = -1)
     {
-        $data = $this->dbLogic->getTables('TABLE_NAME,TABLE_ROWS,CREATE_TIME,TABLE_COLLATION,TABLE_COMMENT,ENGINE,AUTO_INCREMENT,AVG_ROW_LENGTH,INDEX_LENGTH', '', $sortOrder);
+        $data = $this->dbLogic->getTables('TABLE_NAME,TABLE_ROWS,CREATE_TIME,TABLE_COLLATION,TABLE_COMMENT,ENGINE,AUTO_INCREMENT,AVG_ROW_LENGTH,DATA_LENGTH,INDEX_LENGTH,DATA_FREE', '', $sortOrder);
 
         $total = count($data);
 
@@ -344,13 +344,22 @@ class Dbtable extends Controller
         $table->text('TABLE_COMMENT', '表注释')->autoPost('', true)->getWrapper()->addStyle('width:260px');
         $table->raw('TABLE_ROWS', '记录条数');
         $table->show('AUTO_INCREMENT', '自增id');
-        $table->show('DATA_SIZE', '数据大小')->to('{val}MB');
+        $table->show('DATA_LENGTH', '数据大小')->to('{val} MB');
+        $table->raw('DATA_FREE', '碎片大小')->to(function ($val, $row) {
+            $rate = $row['DATA_FREE'] / $row['DATA_LENGTH'];
+            if ($rate > 0.3 || $row['DATA_FREE'] > 100 * 1024 * 1024) {
+                return $val . ' MB' . '<a data-url="' . url('optimize', ['name' => $row['TABLE_NAME'], 'engine' => $row['ENGINE']]) . '" onclick="layerOpen(this)" href="javascript:;" title="优化表" data-layer-size="600px,auto">[优化]</a>';
+            } else {
+                return $val . ' MB';
+            }
+        });
         $table->show('TABLE_COLLATION', '排序规则');
         $table->show('ENGINE', '存储引擎');
         $table->show('CREATE_TIME', '创建时间')->getWrapper()->addStyle('width:160px');
 
         foreach ($data as &$d) {
-            $d['DATA_SIZE'] = $this->dbLogic->getDataSize($d);
+            $d['DATA_LENGTH'] = $this->dbLogic->getDataSize($d);
+            $d['DATA_FREE'] = $this->dbLogic->getDataFreeSize($d);
             $d['TABLE_ROWS'] = '<a target="_blank" title="查看数据" href="' . url('datalist', ['name' => $d['TABLE_NAME']]) . '">' . $d['TABLE_ROWS'] . '</a>';
         }
 
@@ -370,7 +379,38 @@ class Dbtable extends Controller
             ->btnLink('lang', url('/admin/creator/lang', ['id' => '__data.pk__']), '', 'btn-danger', 'mdi-translate', 'title="生成翻译文件"')
             ->btnDelete();
 
-        $table->sortable('TABLE_NAME,TABLE_ROWS,CREATE_TIME,TABLE_COLLATION,AUTO_INCREMENT,AVG_ROW_LENGTH,INDEX_LENGTH');
+        $table->sortable('TABLE_NAME,TABLE_ROWS,CREATE_TIME,TABLE_COLLATION,AUTO_INCREMENT,DATA_LENGTH,DATA_FREE');
+    }
+
+    /**
+     * Undocumented function
+     * @title 碎片优化
+     *
+     * @return mixed
+     */
+    public function optimize($name, $engine)
+    {
+        $builder = $this->builder('碎片优化', $name);
+        $sql = $engine == 'MyISAM' ? "OPTIMIZE TABLE {$name}" : "ALTER TABLE {$name} ENGINE=InnoDB";
+        if (request()->isGet()) {
+            $form = $builder->form();
+            $form->raw('sql')->value("<pre>{$sql}</pre>");
+            $form->raw('操作提示')->value('<p>注意：[优化表]操作可能会锁表(几秒或几十秒，期间无法写入数据)，不建议在业务高峰期执行。如果优化后仍然存在碎片，是正常现象，不要频繁操作。</p>');
+            $form->btnSubmit('执行');
+            $form->btnLayerClose('取消', '6 col-xl-6 col-lg-6 col-sm-6 col-xs-6', 'btn-default');
+
+            return $builder;
+        } else {
+            $res = $this->dbLogic->execute($sql);
+            if ($res) {
+                if ($engine == 'InnoDB') {
+                    $this->dbLogic->execute("ANALYZE TABLE {$name}");
+                }
+                return $builder->layer()->closeRefresh(1, '碎片优化成功');
+            } else {
+                return $builder->layer()->closeRefresh(0, '碎片优化失败');
+            }
+        }
     }
 
     /**
