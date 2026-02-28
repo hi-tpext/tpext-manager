@@ -20,7 +20,7 @@ class DbBackupLogic
     public function __construct()
     {
         if (ExtLoader::isWebman()) {
-            $this->dbConfig = WConfig::get('thinkorm.connections.' . WConfig::get('thinkorm.default'), []);
+            $this->dbConfig = WConfig::get('thinkorm.connections.' . WConfig::get('thinkorm.default'), WConfig::get('think-orm.connections.' . WConfig::get('think-orm.default'), []));
         } else {
             $this->dbConfig = Config::get('database.connections.' . Config::get('database.default'), []);
         }
