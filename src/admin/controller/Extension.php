@@ -106,7 +106,7 @@ class Extension extends Controller
             request()->withPost(request()->get()); //兼容以post方式获取参数
         }
 
-        $builder = Builder::getInstance('扩展管理', __blang('bilder_page_index_text'));
+        $builder = Builder::getInstance('扩展管理', __blang('builder_page_index_text'));
 
         $tab = $builder->tab();
 
