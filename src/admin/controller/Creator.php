@@ -9,6 +9,7 @@ use tpext\common\ExtLoader;
 use tpext\manager\common\Module;
 use tpext\builder\common\Wrapper;
 use tpext\manager\common\logic\DbLogic;
+use tpext\manager\common\logic\AbstractDbLogic;
 use tpext\builder\traits\actions\HasBase;
 use tpext\builder\traits\actions\HasIndex;
 use tpext\manager\common\logic\CreatorLogic;
@@ -33,7 +34,7 @@ class Creator extends Controller
     /**
      * Undocumented variable
      *
-     * @var DbLogic
+     * @var AbstractDbLogic
      */
     protected $dbLogic;
 
@@ -52,7 +53,7 @@ class Creator extends Controller
         $this->pk = 'TABLE_NAME';
 
         $this->creatorLogic = new CreatorLogic;
-        $this->dbLogic = new DbLogic;
+        $this->dbLogic = DbLogic::create();
 
         $this->prefix = $this->dbLogic->getPrefix();
 
@@ -69,7 +70,8 @@ class Creator extends Controller
         $where = '';
 
         if (!empty($searchData['kwd'])) {
-            $where .= " AND (`TABLE_NAME` LIKE '%{$searchData['kwd']}%' OR `TABLE_COMMENT` LIKE '%{$searchData['kwd']}%')";
+            $qkwd = $searchData['kwd'];
+            $where .= " AND (TABLE_NAME LIKE '%{$qkwd}%' OR TABLE_COMMENT LIKE '%{$qkwd}%')";
         }
 
         return $where;

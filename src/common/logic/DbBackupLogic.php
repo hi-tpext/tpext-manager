@@ -17,6 +17,10 @@ class DbBackupLogic
 
     protected $filename = '';
 
+    protected $isPgsql = false;
+
+    protected $dbLogic = null;
+
     public function __construct()
     {
         if (ExtLoader::isWebman()) {
@@ -24,6 +28,15 @@ class DbBackupLogic
         } else {
             $this->dbConfig = Config::get('database.connections.' . Config::get('database.default'), []);
         }
+
+        $dbType = strtolower($this->dbConfig['type'] ?? 'mysql');
+        $this->isPgsql = ($dbType === 'pgsql' || $dbType === 'postgresql');
+        $this->dbLogic = DbLogic::create();
+    }
+
+    protected function quoteName($name)
+    {
+        return $this->dbLogic->quoteIdentifier($name);
     }
 
     /**
@@ -123,7 +136,9 @@ class DbBackupLogic
         $this->lines[] = '-- | Database : ' . $this->dbConfig['database'];
         $this->lines[] = '-- | Time     : ' . date("Y-m-d H:i:s");
         $this->lines[] = '-- | -----------------------------';
-        $this->lines[] = 'SET FOREIGN_KEY_CHECKS = 0;';
+        if (!$this->isPgsql) {
+            $this->lines[] = 'SET FOREIGN_KEY_CHECKS = 0;';
+        }
     }
 
     /**
@@ -138,14 +153,14 @@ class DbBackupLogic
     {
         if ($start == 0) {
             $this->init();
-            $tableInfo = Db::query("SHOW CREATE TABLE `{$table}`");
+            $createSql = $this->dbLogic->getCreateTableSql($table);
             $this->lines[] = '';
             $this->lines[] = '-- | -----------------------------';
-            $this->lines[] = "DROP TABLE IF EXISTS `{$table}`;";
+            $this->lines[] = 'DROP TABLE IF EXISTS ' . $this->quoteName($table) . ';';
             $this->lines[] = '-- | -----------------------------';
             $this->lines[] = '';
             $this->lines[] = "-- | Table structure for `{$table}`";
-            $this->lines[] = $tableInfo[0]['Create Table'] . ';';
+            $this->lines[] = $createSql;
             $this->lines[] = '';
             $this->lines[] = '-- | -----------------------------';
             $this->lines[] = "-- | Data of table `{$table}`";
@@ -169,12 +184,18 @@ class DbBackupLogic
                 $row = array_map('addslashes', $row);
                 $this->lines[] = "('" . str_replace(["\r", "\n"], ['\r', '\n'], implode("', '", $row)) . "')";
                 if (count($this->lines) >= 100) {
-                    $this->flush(PHP_EOL . "INSERT INTO `{$table}` " . "(`" . implode("`, `", $fields) . "`)" . " VALUES " . PHP_EOL, ',' . PHP_EOL, ';');
+                    $quotedFields = array_map(function ($f) {
+                        return $this->quoteName($f);
+                    }, $fields);
+                    $this->flush(PHP_EOL . "INSERT INTO " . $this->quoteName($table) . " (" . implode(", ", $quotedFields) . ") VALUES " . PHP_EOL, ',' . PHP_EOL, ';');
                 }
             }
 
             if (count($this->lines) > 0) {
-                $this->flush(PHP_EOL . "INSERT INTO `{$table}` " . "(`" . implode("`, `", $fields) . "`)" . " VALUES " . PHP_EOL, ',' . PHP_EOL, ';');
+                $quotedFields = array_map(function ($f) {
+                    return $this->quoteName($f);
+                }, $fields);
+                $this->flush(PHP_EOL . "INSERT INTO " . $this->quoteName($table) . " (" . implode(", ", $quotedFields) . ") VALUES " . PHP_EOL, ',' . PHP_EOL, ';');
             }
 
             return [$start + $i, $total, $i == 0];
@@ -207,7 +228,7 @@ class DbBackupLogic
             return $pk;
         }
 
-        $createTime = Db::query("select * from information_schema.columns where `TABLE_SCHEMA`='{$this->dbConfig['database']}' AND `TABLE_NAME`='{$table}' AND `COLUMN_NAME`='create_time'");
+        $createTime = Db::query("select * from information_schema.columns where table_schema='{$this->dbConfig['database']}' AND table_name='{$table}' AND column_name='create_time'");
 
         return  $createTime ? 'create_time' : '';
     }

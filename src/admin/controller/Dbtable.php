@@ -9,6 +9,7 @@ use think\facade\Session;
 use tpext\common\ExtLoader;
 use tpext\manager\common\logic\DbLogic;
 use tpext\manager\common\logic\DbBackupLogic;
+use tpext\manager\common\logic\AbstractDbLogic;
 use tpext\builder\traits\actions\HasBase;
 use tpext\builder\traits\actions\HasIndex;
 
@@ -24,7 +25,7 @@ class Dbtable extends Controller
     /**
      * Undocumented variable
      *
-     * @var DbLogic
+     * @var AbstractDbLogic
      */
     protected $dbLogic;
 
@@ -39,7 +40,7 @@ class Dbtable extends Controller
         }
 
         $this->pk = 'TABLE_NAME';
-        $this->dbLogic = new DbLogic;
+        $this->dbLogic = DbLogic::create();
         $this->prefix = $this->dbLogic->getPrefix();
         $this->sortOrder = 'TABLE_NAME ASC';
         $this->pagesize = 9999; //不产生分页
@@ -52,7 +53,8 @@ class Dbtable extends Controller
         $where = '';
 
         if (!empty($searchData['kwd'])) {
-            $where .= " AND (`TABLE_NAME` LIKE '%{$searchData['kwd']}%' OR `TABLE_COMMENT` LIKE '%{$searchData['kwd']}%')";
+            $qkwd = $searchData['kwd'];
+            $where .= " AND (TABLE_NAME LIKE '%{$qkwd}%' OR TABLE_COMMENT LIKE '%{$qkwd}%')";
         }
 
         return $where;
@@ -251,26 +253,26 @@ class Dbtable extends Controller
             $form->show('CREATE_TIME', '创建时间');
 
             $form->tab('建表语句');
-            $tableInfo = Db::query("SHOW CREATE TABLE `{$data['TABLE_NAME']}`");
-            $form->raw('sql', ' ')->value(!empty($tableInfo) ? '<pre>' . $tableInfo[0]['Create Table'] . ';</pre>' : '-')->size(0, 12);
+            $createTableSql = $this->dbLogic->getCreateTableSql($data['TABLE_NAME']);
+            $form->raw('sql', ' ')->value(!empty($createTableSql) ? '<pre>' . $createTableSql . '</pre>' : '-')->size(0, 12);
             $protectedTables = $this->getProtectedTables();
             if (in_array($data['TABLE_NAME'], $protectedTables)) {
                 $form->readonly();
             }
         } else {
             $pkdata = [
-                ['id' => 'pk', 'COLUMN_NAME' => 'id', 'COLUMN_COMMENT' => '主键', 'DATA_TYPE' => 'int', 'LENGTH' => 10, 'ATTR' => 'auto_inc,unsigned', '__can_delete__' => 0],
-                ['id' => 'create_time', 'COLUMN_NAME' => 'create_time', 'COLUMN_COMMENT' => '添加时间', 'DATA_TYPE' => 'datetime', 'LENGTH' => 0, 'ATTR' => '', '__can_delete__' => 1],
-                ['id' => 'update_time', 'COLUMN_NAME' => 'update_time', 'COLUMN_COMMENT' => '更新时间', 'DATA_TYPE' => 'datetime', 'LENGTH' => 0, 'ATTR' => '', '__can_delete__' => 1],
+                ['id' => 'pk', 'COLUMN_NAME' => 'id', 'COLUMN_COMMENT' => '主键', 'DATA_TYPE' => $this->dbLogic->getDefaultPkType(), 'LENGTH' => 10, 'ATTR' => $this->dbLogic->getDefaultPkAttr(), '__can_delete__' => 0],
+                ['id' => 'create_time', 'COLUMN_NAME' => 'create_time', 'COLUMN_COMMENT' => '添加时间', 'DATA_TYPE' => $this->dbLogic->getDefaultDatetimeType(), 'LENGTH' => 0, 'ATTR' => '', '__can_delete__' => 1],
+                ['id' => 'update_time', 'COLUMN_NAME' => 'update_time', 'COLUMN_COMMENT' => '更新时间', 'DATA_TYPE' => $this->dbLogic->getDefaultDatetimeType(), 'LENGTH' => 0, 'ATTR' => '', '__can_delete__' => 1],
             ];
             //预设字段，在此处就不允许再添加其他字段了。
             $form->items('fields', '字段信息')->dataWithId($pkdata)->canAdd(false)->size(2, 10)
                 ->with(
                     $form->text('COLUMN_NAME', '字段名')->required(),
                     $form->text('COLUMN_COMMENT', '注释')->required(),
-                    $form->select('DATA_TYPE', '类型')->options($this->dbLogic::$FIELD_TYPES)->required()->getWrapper()->addStyle('width:160px;'),
+                    $form->select('DATA_TYPE', '类型')->options($this->dbLogic->getFieldTypes())->required()->getWrapper()->addStyle('width:160px;'),
                     $form->text('LENGTH', '长度')->getWrapper()->addStyle('width:100px;'),
-                    $form->checkbox('ATTR', '属性')->options(['auto_inc' => '自增', 'unsigned' => '非负'])->getWrapper()->addStyle('width:160px;')
+                    $form->checkbox('ATTR', '属性')->options($this->dbLogic->getFieldAttrOptions()['create'])->getWrapper()->addStyle('width:160px;')
                 );
         }
     }
@@ -346,9 +348,8 @@ class Dbtable extends Controller
         $table->show('AUTO_INCREMENT', '自增id');
         $table->show('DATA_LENGTH', '数据大小')->to('{val} MB');
         $table->raw('DATA_FREE', '碎片大小')->to(function ($val, $row) {
-            $rate = $row['DATA_FREE'] / $row['DATA_LENGTH'];
-            if ($rate > 0.3 || $row['DATA_FREE'] > 100 * 1024 * 1024) {
-                return $val . ' MB' . '<a data-url="' . url('optimize', ['name' => $row['TABLE_NAME'], 'engine' => $row['ENGINE']]) . '" onclick="layerOpen(this)" href="javascript:;" title="优化表" data-layer-size="600px,auto">[优化]</a>';
+            if ($this->dbLogic->needOptimize($row)) {
+                return $val . ' MB' . '<a data-url="' . url('optimize', ['name' => $row['TABLE_NAME']]) . '" onclick="layerOpen(this)" href="javascript:;" title="优化表" data-layer-size="600px,auto">[优化]</a>';
             } else {
                 return $val . ' MB';
             }
@@ -388,24 +389,21 @@ class Dbtable extends Controller
      *
      * @return mixed
      */
-    public function optimize($name, $engine)
+    public function optimize($name)
     {
         $builder = $this->builder('碎片优化', $name);
-        $sql = $engine == 'MyISAM' ? "OPTIMIZE TABLE {$name}" : "ALTER TABLE {$name} ENGINE=InnoDB";
+        $optimizeSql = $this->dbLogic->getOptimizeSql($name);
         if (request()->isGet()) {
             $form = $builder->form();
-            $form->raw('sql')->value("<pre>{$sql}</pre>");
+            $form->raw('sql')->value("<pre>{$optimizeSql}</pre>");
             $form->raw('操作提示')->value('<p>注意：[优化表]操作可能会锁表(几秒或几十秒，期间无法写入数据)，不建议在业务高峰期执行。如果优化后仍然存在碎片，是正常现象，不要频繁操作。</p>');
             $form->btnSubmit('执行');
             $form->btnLayerClose('取消', '6 col-xl-6 col-lg-6 col-sm-6 col-xs-6', 'btn-default');
 
             return $builder;
         } else {
-            $res = $this->dbLogic->execute($sql);
+            $res = $this->dbLogic->optimizeTable($name);
             if ($res) {
-                if ($engine == 'InnoDB') {
-                    $this->dbLogic->execute("ANALYZE TABLE {$name}");
-                }
                 return $builder->layer()->closeRefresh(1, '碎片优化成功');
             } else {
                 return $builder->layer()->closeRefresh(0, '碎片优化失败');
@@ -672,15 +670,21 @@ class Dbtable extends Controller
 
         $form = $builder->form();
 
-        $fields = $this->dbLogic->getFields($name, 'COLUMN_NAME,COLUMN_TYPE,COLUMN_DEFAULT,COLUMN_COMMENT,IS_NULLABLE,NUMERIC_SCALE,NUMERIC_PRECISION,CHARACTER_MAXIMUM_LENGTH,DATA_TYPE');
+        $fields = $this->dbLogic->getFields($name, 'COLUMN_NAME,COLUMN_TYPE,COLUMN_DEFAULT,COLUMN_COMMENT,IS_NULLABLE,NUMERIC_SCALE,NUMERIC_PRECISION,CHARACTER_MAXIMUM_LENGTH,DATETIME_PRECISION,DATA_TYPE');
 
         $keys = [];
 
         $moveTo = [];
 
         foreach ($fields as &$field) {
-            if ($this->dbLogic->isInteger($field['DATA_TYPE']) || $this->dbLogic->isDecimal($field['DATA_TYPE']) || $this->dbLogic->isChartext($field['DATA_TYPE'])) {
+            if ($this->dbLogic->isInteger($field['DATA_TYPE'])) {
+                $field['LENGTH'] = 0;
+            } else if ($this->dbLogic->isDecimal($field['DATA_TYPE']) || $this->dbLogic->isChartext($field['DATA_TYPE'])) {
                 $field['LENGTH'] = preg_replace('/^\w+\((\d+).+?$/', '$1', $field['COLUMN_TYPE']);
+            } else if ($this->dbLogic->isDatetime($field['DATA_TYPE'])) {
+                $field['LENGTH'] = !empty($field['DATETIME_PRECISION']) ? $field['DATETIME_PRECISION'] : 0;
+            } else {
+                $field['LENGTH'] = 0;
             }
 
             if (strtolower($field['COLUMN_NAME']) == 'id') {
@@ -693,7 +697,7 @@ class Dbtable extends Controller
 
             $ATTR = [];
 
-            if (strpos($field['COLUMN_TYPE'], 'unsigned')) {
+            if ($this->dbLogic->hasUnsigned() && strpos($field['COLUMN_TYPE'], 'unsigned')) {
                 $ATTR['unsigned'] = 'unsigned';
             }
 
@@ -717,6 +721,10 @@ class Dbtable extends Controller
 
             if (is_null($field['COLUMN_DEFAULT'])) {
                 $field['COLUMN_DEFAULT'] = 'NULL';
+            } elseif (preg_match('/^nextval\(/', $field['COLUMN_DEFAULT'])) {
+                $ATTR['auto_inc'] = 'auto_inc';
+                $field['ATTR'] = implode(',', $ATTR);
+                $field['COLUMN_DEFAULT'] = '0';
             } else {
                 $field['COLUMN_DEFAULT'] = trim($field['COLUMN_DEFAULT'], "'");
             }
@@ -726,22 +734,25 @@ class Dbtable extends Controller
 
         unset($keys, $field);
 
-        $form->items('fields', ' ')->dataWithId($fields, 'COLUMN_NAME')->size(0, 12)
-            ->with(
-                $form->text('COLUMN_NAME', '字段名')->required(),
-                $form->text('COLUMN_COMMENT', '字段注释')->required(),
-                $form->select('DATA_TYPE', '数据类型')->options($this->dbLogic::$FIELD_TYPES)->required()->default('varchar')->getWrapper()->addStyle('width:120px;'),
-                $form->text('LENGTH', '长度')->default(0)->getWrapper()->addStyle('width:80px;'),
-                $form->text('NUMERIC_SCALE', '小数点')->default(0)->getWrapper()->addStyle('width:60px;'),
-                $form->text('COLUMN_DEFAULT', '默认值')->default(''),
-                $form->switchBtn('IS_NULLABLE', '可空')->getWrapper()->addStyle('width:70px;'),
-                $form->checkbox('ATTR', '属性')->options(['index' => '索引', 'unique' => '唯一', 'unsigned' => '非负'])->getWrapper()->addStyle('width:200px;'),
-                $form->select('MOVE_AFTER', '移动到')->placeholder('移动字段')->rendering(function ($field) use ($moveTo) {
-                    $options = $moveTo;
-                    unset($options[$field->data['COLUMN_NAME']]); //自身字段名从选项中移除
-                    $field->options($options);
-                })->getWrapper()->addStyle('width:180px;')
-            );
+        $form->items('fields', ' ')->dataWithId($fields, 'COLUMN_NAME')->size(0, 12);
+        $form->text('COLUMN_NAME', '字段名')->required();
+        $form->text('COLUMN_COMMENT', '字段注释')->required();
+        $form->select('DATA_TYPE', '数据类型')->options($this->dbLogic->getFieldTypes())->required()->default('varchar')->getWrapper()->addStyle('width:120px;');
+        $form->text('LENGTH', '长度')->default(0)->getWrapper()->addStyle('width:80px;');
+        $form->text('NUMERIC_SCALE', '小数点')->default(0)->getWrapper()->addStyle('width:60px;');
+        $form->text('COLUMN_DEFAULT', '默认值')->default('');
+        $form->switchBtn('IS_NULLABLE', '可空(NULL)')->getWrapper()->addStyle('width:70px;');
+        $form->checkbox('ATTR', '属性')->options($this->dbLogic->getFieldAttrOptions()['edit'])->getWrapper()->addStyle('width:200px;');
+
+        if ($this->dbLogic->supportsColumnPositioning()) {
+            $form->select('MOVE_AFTER', '移动到')->placeholder('移动字段')->rendering(function ($field) use ($moveTo) {
+                $options = $moveTo;
+                unset($options[$field->data['COLUMN_NAME']]); //自身字段名从选项中移除
+                $field->options($options);
+            })->getWrapper()->addStyle('width:180px;');
+        }
+
+        $form->fieldsEnd();
 
         $protectedTables = $this->getProtectedTables();
         if (in_array($name, $protectedTables)) {
@@ -797,7 +808,7 @@ class Dbtable extends Controller
             $this->error('保存失败-' . implode('<br>', $errors));
         }
 
-        $this->success('保存成功，页面即将刷新~', null, ['script' => '<script>parent.$(".search-refresh").trigger("click");</script>'], 1);
+        $this->success('保存成功，页面即将刷新~', url('fieldlist', ['name' => $name]), ['script' => '<script>parent.$(".search-refresh").trigger("click");</script>'], 1);
     }
 
     /**

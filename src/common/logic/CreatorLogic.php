@@ -20,13 +20,15 @@ class CreatorLogic
 
     protected $config = [];
 
+    protected $dbType = '';
+
     public function __construct()
     {
-        $type = Db::getConfig('default', 'mysql');
+        $driver = Db::getConfig('default', 'mysql');
 
         $connections = Db::getConfig('connections');
 
-        $this->config = $connections[$type] ?? [];
+        $this->config = $connections[$driver] ?? [];
 
         if (empty($this->config) || empty($this->config['database'])) {
             return;
@@ -34,6 +36,7 @@ class CreatorLogic
 
         $this->database = $this->config['database'];
         $this->prefix = $this->config['prefix'];
+        $this->dbType = $this->config['type'];
     }
 
     /**
@@ -703,7 +706,7 @@ class CreatorLogic
         $lines[] = '';
         $lines[] = "use think\Model;";
 
-        $dbLogic = new DbLogic;
+        $dbLogic = DbLogic::create();
 
         $solft_delete = $dbLogic->getFieldInfo($prefix . $table, 'delete_time') ? 1 : 0;
 
@@ -734,16 +737,30 @@ class CreatorLogic
         $lines[] = '';
 
         if ($create_time) {
-            if ($create_time['COLUMN_TYPE'] == 'datetime') {
-                $lines[] = '    protected $autoWriteTimestamp = \'datetime\';';
-            } else if ($create_time['COLUMN_TYPE'] == 'timestamp') {
-                $lines[] = '    protected $autoWriteTimestamp = \'timestamp\';';
-            } else if ($create_time['COLUMN_TYPE'] == 'date') {
-                $lines[] = '    protected $autoWriteTimestamp = \'date\';';
-            } else {
-                $lines[] = '    protected $autoWriteTimestamp = \'int\';';
-                $lines[] = '';
-                $lines[] = '    protected $dateFormat = \'Y-m-d H:i:s\';';
+            if ($this->dbType == 'mysql') {
+                if ($create_time['COLUMN_TYPE'] == 'datetime') {
+                    $lines[] = '    protected $autoWriteTimestamp = \'datetime\';';
+                } else if ($create_time['COLUMN_TYPE'] == 'timestamp') {
+                    $lines[] = '    protected $autoWriteTimestamp = \'timestamp\';';
+                } else if ($create_time['COLUMN_TYPE'] == 'date') {
+                    $lines[] = '    protected $autoWriteTimestamp = \'date\';';
+                } else {
+                    $lines[] = '    protected $autoWriteTimestamp = \'int\';';
+                    $lines[] = '';
+                    $lines[] = '    protected $dateFormat = \'Y-m-d H:i:s\';';
+                }
+            } else if ($this->dbType == 'pgsql') {
+                if ($create_time['COLUMN_TYPE'] == 'timestamp') {
+                    $lines[] = '    protected $autoWriteTimestamp = \'datetime\';';
+                } else if ($create_time['COLUMN_TYPE'] == 'timestamptz') {
+                    $lines[] = '    protected $autoWriteTimestamp = \'timestamp\';';
+                } else if ($create_time['COLUMN_TYPE'] == 'date') {
+                    $lines[] = '    protected $autoWriteTimestamp = \'date\';';
+                } else {
+                    $lines[] = '    protected $autoWriteTimestamp = \'int\';';
+                    $lines[] = '';
+                    $lines[] = '    protected $dateFormat = \'Y-m-d H:i:s\';';
+                }
             }
         }
 
