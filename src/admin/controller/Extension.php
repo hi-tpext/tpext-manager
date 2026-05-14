@@ -364,7 +364,7 @@ class Extension extends Controller
             $configFile = ExtLoader::isWebman() ? 'config/thinkorm.php' : 'config/database.php';
 
             $form->raw('tips', '提示')->value('<p>数据库配置信息将保存在<b>[' . $configFile . ']</b>文件中，请确保程序对此文件有可写权限。'
-                . '如果您不想通过此程序修改配置，请手动修改数据库配置文件，后<a href="' . $url . '">[点此]</a>进入下一步，如果仍然回到此页面，请检查配置。</p>');
+                . '如果您不想通过此程序修改配置（或者使用pgsql，暂不支持在此页面配置），请手动修改数据库配置文件，后<a href="' . $url . '">[点此]</a>进入下一步，如果仍然回到此页面，请检查配置。</p>');
 
             $data = Session::get('dbconfig');
 
