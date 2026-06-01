@@ -322,6 +322,7 @@ class Extension extends Controller
                 $d['id'] = str_replace('.', '-', $d['name']);
                 $d['download'] = 0;
                 $d['install'] = 0;
+                $d['install_type'] = '';
                 $d['now_version'] = '';
 
                 foreach ($this->extensions as $key => $instance) {
@@ -333,6 +334,7 @@ class Extension extends Controller
                     if ($instance->getName() == $d['name']) {
                         $d['download'] = 1;
                         $d['now_version'] = $instance->getVersion();
+                        $d['package_type'] = $instance->getPackgeType();
                         foreach ($installed as $ins) {
                             if ($ins['key'] == $key) {
                                 $d['install'] = $ins['install'];
@@ -343,7 +345,7 @@ class Extension extends Controller
                     }
                 }
                 $extend_download = $d['extend_download'] && preg_match('/^https?:\/\/.+?$/i', $d['extend_download']);
-                $d['__h_up__'] = $d['now_version'] == $d['version'] || !$extend_download || !$d['download'];
+                $d['__h_up__'] = $d['now_version'] == $d['version'] || !$extend_download || !$d['download'] || $d['package_type'] == 'composer';
                 $d['__h_dwn__'] = $d['now_version'] == $d['version'] || !$extend_download || $d['download'];
             }
         } else {
