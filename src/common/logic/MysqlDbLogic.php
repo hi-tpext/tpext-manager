@@ -153,7 +153,7 @@ class MysqlDbLogic extends AbstractDbLogic
         $tableInfo = $this->getTableInfo($tableName, 'TABLE_NAME');
 
         if ($tableInfo) {
-            $this->errors[] = '表名已存在';
+            $this->errors[] = __admin_lang('msg_table_name_exists');
             return false;
         }
 
@@ -164,7 +164,7 @@ class MysqlDbLogic extends AbstractDbLogic
         if (empty($pkinfo)) {
             $pkinfo = [
                 'COLUMN_NAME' => 'id',
-                'COLUMN_COMMENT' => '主键',
+                'COLUMN_COMMENT' => __admin_lang('label_pk'),
                 'DATA_TYPE' => 'int',
                 'LENGTH' => '10',
                 'ATTR' =>

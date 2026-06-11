@@ -149,7 +149,7 @@ abstract class AbstractDbLogic
         $tableInfo = $this->getTableInfo($tableName, 'TABLE_NAME,TABLE_COMMENT');
 
         if (!$tableInfo) {
-            $this->errors[] = '表不存在';
+            $this->errors[] = __admin_lang('msg_table_not_exists');
             return false;
         }
 
@@ -314,8 +314,8 @@ abstract class AbstractDbLogic
     public function getFieldAttrOptions()
     {
         return [
-            'create' => ['auto_inc' => '自增', 'unsigned' => '非负'],
-            'edit' => ['index' => '索引', 'unique' => '唯一', 'unsigned' => '非负'],
+            'create' => ['auto_inc' => __admin_lang('attr_auto_inc'), 'unsigned' => __admin_lang('attr_unsigned')],
+            'edit' => ['index' => __admin_lang('attr_index'), 'unique' => __admin_lang('attr_unique'), 'unsigned' => __admin_lang('attr_unsigned')],
         ];
     }
 

@@ -15,12 +15,12 @@ use tpext\manager\common\Module;
 use tpext\builder\common\Table;
 use tpext\builder\common\Builder;
 use tpext\common\Module as BaseModule;
-use tpext\builder\common\Module as builderRes;
+use tpext\builder\common\Module as BuilderRes;
+use tpext\myadmin\common\Module as AdminRes;
 use tpext\manager\common\logic\ExtensionLogic;
 use tpext\common\model\Extension as ExtensionModel;
 use tpext\lightyearadmin\common\Resource as LightyearRes;
 use tpext\builder\mdeditor\common\Resource as MdeditorRes;
-use think\exception\HttpResponseException;
 
 /**
  * Undocumented class
@@ -48,7 +48,7 @@ class Extension extends Controller
 
     protected function initialize()
     {
-        $this->checkUi();
+        Module::getInstance()->loadLang('extension');
 
         $this->extensionLogic = new ExtensionLogic;
 
@@ -72,31 +72,6 @@ class Extension extends Controller
     }
 
     /**
-     * 检测ui-builder扩展是否安装
-     * 
-     * @throws \think\exception\HttpResponseException
-     * @return void
-     */
-    protected function checkUi()
-    {
-        if (!class_exists(Builder::class)) {
-
-            $ulArr = ['composer require ichynul/tpext-vexipui:^5.0.1', 'composer require ichynul/tpext-tinyvue:^5.0.1', 'composer require ichynul/tpext-builder:^3.0.1'];
-            $content = '<h3>请先安装ui-builder扩展</h3><pre>请安装以下其中一个扩展：' . PHP_EOL . implode(PHP_EOL . '或' . PHP_EOL, $ulArr) . '</pre>';
-
-            if (ExtLoader::isWebman()) {
-                $content .= '<a target="_blank" href="https://github.com/hi-tpext/tpext-myadmin/tree/4.5">详细说明</a>';
-                $response = new \Webman\Http\Response(200, [], $content);
-            } else {
-                $content .= '<a target="_blank" href="https://github.com/hi-tpext/tpext-myadmin/tree/5.0">详细说明</a>';
-                $response = \think\Response::create($content);
-            }
-
-            throw new HttpResponseException($response);
-        }
-    }
-
-    /**
      * @title 扩展列表
      * @return mixed
      */
@@ -106,12 +81,12 @@ class Extension extends Controller
             request()->withPost(request()->get()); //兼容以post方式获取参数
         }
 
-        $builder = Builder::getInstance('扩展管理', __blang('builder_page_index_text'));
+        $builder = Builder::getInstance(__admin_lang('page_extension_manage'), __blang('builder_page_index_text'));
 
         $tab = $builder->tab();
 
-        $localTable = $tab->table('本地')->tableId('local');
-        $remoteTable = $tab->table('远程')->tableId('remote');
+        $localTable = $tab->table(__admin_lang('label_local'))->tableId('local');
+        $remoteTable = $tab->table(__admin_lang('label_remote'))->tableId('remote');
 
         $this->buildTableByRemote(0, $localTable);
         $this->buildTableByRemote(1, $remoteTable);
@@ -140,12 +115,12 @@ class Extension extends Controller
             $data = request()->post();
 
             $result = $this->validate($data, [
-                'hostname|域名或ip' => 'require',
-                'hostport|端口' => 'require|number',
-                'method|方式' => 'require',
-                'username|账户名' => 'require',
-                'database|数据库名' => 'require',
-                'charset|数据库编码' => 'require',
+                'hostname|' . __admin_lang('hostname') => 'require',
+                'hostport|' . __admin_lang('hostport') => 'require|number',
+                'method|' . __admin_lang('method') => 'require',
+                'username|' . __admin_lang('username') => 'require',
+                'database|' . __admin_lang('database') => 'require',
+                'charset|' . __admin_lang('charset') => 'require',
             ]);
 
             if (true !== $result) {
@@ -158,8 +133,8 @@ class Extension extends Controller
             if ($data['method'] == 1) {
 
                 $result = $this->validate($data, [
-                    'new_username|新账户名' => 'require',
-                    'new_password|密码' => 'require'
+                    'new_username|' . __admin_lang('new_username') => 'require',
+                    'new_password|' . __admin_lang('new_password') => 'require'
                 ]);
 
                 if (true !== $result) {
@@ -185,14 +160,14 @@ class Extension extends Controller
                     Db::query('SELECT TABLE_NAME FROM information_schema.tables');
                 } catch (\Throwable $e) {
                     trace($e->__toString());
-                    $this->error('连接数据库失败-' . $e->getMessage());
+                    $this->error(sprintf(__admin_lang('msg_db_connect_failed'), $e->getMessage()));
                 }
 
                 try {
                     Db::query("CREATE DATABASE IF NOT EXISTS {$createDb}");
                 } catch (\Throwable $e) {
                     trace($e->__toString());
-                    $this->error('连创建据库失败-' . $e->getMessage());
+                    $this->error(sprintf(__admin_lang('msg_db_create_failed'), $e->getMessage()));
                 }
 
                 try {
@@ -202,7 +177,7 @@ class Extension extends Controller
                     Db::query("FLUSH PRIVILEGES;");
                 } catch (\Throwable $e) {
                     trace($e->__toString());
-                    $this->error('创建新用户授权失败-' . $e->getMessage());
+                    $this->error(sprintf(__admin_lang('msg_db_grant_failed'), $e->getMessage()));
                 }
                 //切换
                 $data['database'] = $createDb;
@@ -224,7 +199,7 @@ class Extension extends Controller
                     Db::query('SELECT TABLE_NAME FROM information_schema.tables');
                 } catch (\Throwable $e) {
                     trace($e->__toString());
-                    $this->error('连接数据库失败-' . $e->getMessage());
+                    $this->error(sprintf(__admin_lang('msg_db_connect_failed'), $e->getMessage()));
                 }
             }
 
@@ -311,12 +286,12 @@ class Extension extends Controller
                 }
             } catch (\Throwable $e) {
                 trace($e->__toString());
-                $this->error('写入配置信息到文件失败-' . $e->getMessage());
+                $this->error(sprintf(__admin_lang('msg_config_write_failed'), $e->getMessage()));
             }
-            $this->success('数据库配置成功', url('prepare'), '', 1);
+            $this->success(__admin_lang('msg_db_config_success'), url('prepare'), '', 1);
         } else {
-            builderRes::getInstance()->loaded();
-            $builder = Builder::getInstance('扩展管理', '数据库配置');
+            BuilderRes::getInstance()->loaded();
+            $builder = Builder::getInstance(__admin_lang('page_extension_manage'), __admin_lang('page_db_config'));
 
             $builder->content(3)->display('');
 
@@ -324,47 +299,46 @@ class Extension extends Controller
             $form->defaultDisplayerSize(12, 12);
 
             $form->fields('db_type', ' ')->showLabel(false)->with(
-                $form->show('type', '数据库类型', 6)->value('MySQL/MairaDB'),
-                $form->radio('charset', '数据库编码', 6)->texts(['utf8', 'utf8mb4'])->default('utf8')->required()
+                $form->show('type', '', 6)->value('MySQL/MairaDB'),
+                $form->radio('charset', '', 6)->texts(['utf8', 'utf8mb4'])->default('utf8')->required()
             );
 
             $form->fields('host_port', ' ')->showLabel(false)->with(
-                $form->text('hostname', '域名或ip', 6)->default('127.0.0.1')->help('如:127.0.0.1、localhost')->required(),
-                $form->text('hostport', '端口', 6)->default('3306')->required()
+                $form->text('hostname', '', 6)->default('127.0.0.1')->help(__admin_lang('help_db_hostname'))->required(),
+                $form->text('hostport', '', 6)->default('3306')->required()
             );
 
-            $form->radio('method', '方式')
-                ->options([1 => '使用root创建新的账户和数据库', 2 => '使用已存在的账户和数据库'])
+            $form->radio('method')
+                ->options([1 => __admin_lang('opt_method_root'), 2 => __admin_lang('opt_method_existing')])
                 ->required()
                 ->default(1)
                 ->when(1)->with(
                     $form->fields('root_user_pwd', ' ')->showLabel(false)->with(
-                        $form->text('username', 'root账户', 6)->default('root')->help('超级账户名，root或其他有创建新用户和数据库高级权限的账户')->required(),
-                        $form->password('password', 'root密码', 6)
+                        $form->text('username', '', 6)->default('root')->help(__admin_lang('help_db_root'))->required(),
+                        $form->password('password', '', 6)
                     ),
                     $form->fields('new_user_pwd', ' ')->showLabel(false)->with(
-                        $form->text('new_username', '新账户名', 6)->help('由英文字母数、字或、下划线组成')->required(),
-                        $form->password('new_password', '密码', 6)->required()
+                        $form->text('new_username', '', 6)->help(__admin_lang('help_db_new_username'))->required(),
+                        $form->password('new_password', '', 6)->required()
                     )
                 )
                 ->when(2)->with(
                     $form->fields('host_port', ' ')->showLabel(false)->with(
-                        $form->text('username', '账户名', 6)->help('由英文字母数、字或、下划线组成。为了数据安全不建议直接使用root账号连接')->required(),
-                        $form->password('password', '密码', 6)->required()
+                        $form->text('username', '', 6)->help(__admin_lang('help_db_username'))->required(),
+                        $form->password('password', '', 6)->required()
                     )
                 );
 
             $form->fields('host_port', ' ')->showLabel(false)->with(
-                $form->text('database', '数据库名', 6)->help('由英文字母数、字或、下划线组成，如果数据库已存在，则直接使用。')->required(),
-                $form->text('prefix', '表前缀', 6)->default('tp_')
+                $form->text('database', '', 6)->help(__admin_lang('help_db_database'))->required(),
+                $form->text('prefix', '', 6)->default('tp_')
             );
 
             $url = url('prepare');
 
             $configFile = ExtLoader::isWebman() ? 'config/thinkorm.php' : 'config/database.php';
 
-            $form->raw('tips', '提示')->value('<p>数据库配置信息将保存在<b>[' . $configFile . ']</b>文件中，请确保程序对此文件有可写权限。'
-                . '如果您不想通过此程序修改配置（或者使用pgsql，暂不支持在此页面配置），请手动修改数据库配置文件，后<a href="' . $url . '">[点此]</a>进入下一步，如果仍然回到此页面，请检查配置。</p>');
+            $form->raw('tips')->value('<p>' . sprintf(__admin_lang('help_db_config_file_tip'), '<b>[' . $configFile . ']</b>') . '<a href="' . $url . '">[' . __admin_lang('btn_click_here') . ']</a>' . __admin_lang('help_db_config_file_tip_link') . '</p>');
 
             $data = Session::get('dbconfig');
 
@@ -389,32 +363,36 @@ class Extension extends Controller
             } catch (\Throwable $e) {
                 $msg = $e->getMessage();
                 LightyearRes::getInstance()->copyAssets();
-                builderRes::getInstance()->copyAssets();
+                BuilderRes::getInstance()->copyAssets();
 
                 $next = url('/admin/extension/dbconfig');
 
-                return "<h4>提示</h4><p>{$msg}.数据库连接失败，请配置数据库。</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
+                return "<h4>" . __admin_lang('tips') . "</h4><p>{$msg}." . __admin_lang('msg_db_connection_failed_config') . "</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
             }
             Session::set('dbconfig', null);
             Module::getInstance()->install();
             $next = url('/admin/extension/prepare', ['step' => 1]);
-            return "<h4>(1/4)</h4><p>安装[tpext.manager]，完成！</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
+            return "<h4>" . sprintf(__admin_lang('msg_prepare_step'), 1) . "</h4><p>" . __admin_lang('msg_prepare_install_tpext_manager') . "</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
         } else if ($step == 1) {
             LightyearRes::getInstance()->install();
             $next = url('/admin/extension/prepare', ['step' => 2]);
-            return "<h4>(2/4)</h4><p>安装[lightyear.admin]，完成！</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
+            return "<h4>" . sprintf(__admin_lang('msg_prepare_step'), 2) . "</h4><p>" . __admin_lang('msg_prepare_install_lightyear') . "</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
         } else if ($step == 2) {
-            builderRes::getInstance()->install();
+            BuilderRes::getInstance()->install();
             $next = url('/admin/extension/prepare', ['step' => 3]);
-            return "<h4>(3/4)</h4><p>安装[tpext.builder]，完成！</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
+            return "<h4>" . sprintf(__admin_lang('msg_prepare_step'), 3) . "</h4><p>" . __admin_lang('msg_prepare_install_builder') . "</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
         } else if ($step == 3) {
             MdeditorRes::getInstance()->install();
             $next = url('/admin/extension/prepare', ['step' => 4]);
-            return "<h4>(4/4)</h4><p>安装[builder.mdeditor]，完成！</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
+            return "<h4>" . sprintf(__admin_lang('msg_prepare_step'), 4) . "</h4><p>" . __admin_lang('msg_prepare_install_mdeditor') . "</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
+        } else if ($step == 4) {
+            AdminRes::getInstance()->install();
+            $next = url('/admin/extension/prepare', ['step' => 5]);
+            return "<h4>" . sprintf(__admin_lang('msg_prepare_step'), 5) . "</h4><p>" . __admin_lang('msg_prepare_install_admin') . "</p><script>setTimeout(function(){location.href='{$next}'},1000);</script>";
         } else {
             ExtLoader::trigger('tpext_extension_prepare_done'); //如果扩展要在首次安装时静默安装，可监听此事件
             $next = url('/admin/extension/index', ['first_install' => 1]);
-            return "<h4>(预安装完成)</h4><p>即将跳转[扩展管理]页面，继续安装其他扩展！</p><script>setTimeout(function(){location.href='{$next}'},1500);</script>";
+            return "<h4>" . __admin_lang('msg_prepare_done') . "</h4><p>" . __admin_lang('msg_prepare_redirect') . "</p><script>setTimeout(function(){location.href='{$next}'},1500);</script>";
         }
     }
 
@@ -481,7 +459,7 @@ class Extension extends Controller
             $installed = ExtLoader::getInstalled(true);
 
             if (empty($installed)) {
-                $this->error('已安装扩展为空！请确保数据库连接正常，然后安装[tpext.manager]');
+                $this->error(__admin_lang('msg_installed_empty'));
             } else {
                 if (!ExtensionModel::where('key', Module::class)->find()) {
 
@@ -555,25 +533,25 @@ class Extension extends Controller
         $first_install = input('first_install', 0);
         $page = input('__page__/d', 1);
 
-        $table->show('title', '标题');
-        $table->show('name', '标识');
-        $table->match('ext_type', '扩展类型')->options(
+        $table->show('title');
+        $table->show('name');
+        $table->match('ext_type')->options(
             [
-                1 => '<label class="label label-info">模块</label>',
-                2 => '<label class="label label-success">资源</label>',
+                1 => '<label class="label label-info">' . __admin_lang('label_module') . '</label>',
+                2 => '<label class="label label-success">' . __admin_lang('label_resource') . '</label>',
             ]
         );
-        $table->show('tags', '分类');
-        $table->show('description', '介绍')->getWrapper()->addStyle('width:40%;');
+        $table->show('tags');
+        $table->show('description')->getWrapper()->addStyle('width:40%;');
 
         if ($remote) {
-            $table->show('now_version', '已下载版本号');
-            $table->show('version', '最新版本号');
-            $table->match('download', '下载')->options([0 => '未下载', 1 => '已下载'])->mapClassGroup([[0, 'default'], [1, 'success']]);
-            $table->match('install', '安装')->options([0 => '未安装', 1 => '已安装'])->mapClassGroup([[0, 'default'], [1, 'success']]);
-            $table->show('composer', 'Composer');
-            $table->show('platform', 'TP版本支持');
-            $table->match('is_free', '免费')->options([1 => '是', 0 => '否']);
+            $table->show('now_version');
+            $table->show('version');
+            $table->match('download')->options([0 => __admin_lang('label_not_downloaded'), 1 => __admin_lang('label_downloaded')])->mapClassGroup([[0, 'default'], [1, 'success']]);
+            $table->match('install')->options([0 => __admin_lang('label_not_installed'), 1 => __admin_lang('label_installed')])->mapClassGroup([[0, 'default'], [1, 'success']]);
+            $table->show('composer');
+            $table->show('platform');
+            $table->match('is_free')->options([1 => __admin_lang('label_yes'), 0 => __admin_lang('label_no')]);
             $table->getActionbar()
                 ->btnLink(
                     'update',
@@ -581,7 +559,7 @@ class Extension extends Controller
                     '',
                     'btn-warning',
                     'mdi-autorenew',
-                    'title="更新"'
+                    'title="' . __admin_lang('btn_update') . '"'
                 )
                 ->btnLink(
                     'download',
@@ -589,35 +567,35 @@ class Extension extends Controller
                     '',
                     'btn-info',
                     'mdi-cloud-download',
-                    'title="下载"'
+                    'title="' . __admin_lang('btn_download') . '"'
                 )
                 ->mapClass([
                     'update' => ['hidden' => '__h_up__'],
                     'download' => ['hidden' => '__h_dwn__']
                 ])
-                ->btnLink('view', '__data.website__', '', 'btn-primary', 'mdi-web', 'title="主页" target="_blank"')
+                ->btnLink('view', '__data.website__', '', 'btn-primary', 'mdi-web', 'title="' . __admin_lang('btn_homepage') . '" target="_blank"')
                 ->getCurrent()->useLayer(false);
         } else {
-            $table->show('version', '已安装版本号');
-            $table->match('install', '安装')->options([0 => '未安装', 1 => '已安装'])->mapClassGroup([[0, 'default'], [1, 'success']]);
+            $table->show('version');
+            $table->match('install')->options([0 => __admin_lang('label_not_installed'), 1 => __admin_lang('label_installed')])->mapClassGroup([[0, 'default'], [1, 'success']]);
 
-            $table->switchBtn('enable', '启用')->autoPost(url('enable'))
+            $table->switchBtn('enable')->autoPost(url('enable'))
                 ->mapClass(0, 'hidden', 'install') //未安装，隐藏[启用/禁用]
                 ->mapClass([Module::class, TpextCore::class], 'hidden', 'key'); //特殊扩展，隐藏[启用/禁用]
 
             $table->getActionbar()
-                ->btnLink('upgrade', url('upgrade', ['key' => '__data.id__']), '', 'btn-success', 'mdi-arrow-up-bold-circle', 'title="升级"')
-                ->btnLink('install', url('install', ['key' => '__data.id__']), '', 'btn-primary', 'mdi-plus', 'title="安装"')
-                ->btnLink('uninstall', url('uninstall', ['key' => '__data.id__']), '', 'btn-danger', 'mdi-delete', 'title="卸载"')
-                ->btnLink('setting', url('/admin/config/edit', ['key' => '__data.id__']), '', 'btn-info', 'mdi-settings', 'title="设置" data-layer-size="98%,98%"')
+                ->btnLink('upgrade', url('upgrade', ['key' => '__data.id__']), '', 'btn-success', 'mdi-arrow-up-bold-circle', 'title="' . __admin_lang('btn_upgrade') . '"')
+                ->btnLink('install', url('install', ['key' => '__data.id__']), '', 'btn-primary', 'mdi-plus', 'title="' . __admin_lang('btn_install') . '"')
+                ->btnLink('uninstall', url('uninstall', ['key' => '__data.id__']), '', 'btn-danger', 'mdi-delete', 'title="' . __admin_lang('btn_uninstall') . '"')
+                ->btnLink('setting', url('/admin/config/edit', ['key' => '__data.id__']), '', 'btn-info', 'mdi-settings', 'title="' . __admin_lang('btn_setting') . '" data-layer-size="98%,98%"')
                 ->btnPostRowid(
                     'copyAssets',
                     url('copyAssets'),
                     '',
                     'btn-purple',
                     'mdi-redo',
-                    'title="刷新资源"',
-                    '刷新资源将清空并还原`/assets/`下对应扩展目录中的文件，原则上您不应该修改此目录中的任何文件或上传新文件到其中。若您这么做了，请备份到其他地方，然后再刷新资源。确定要刷新吗？'
+                    'title="' . __admin_lang('btn_refresh_assets') . '"',
+                    __admin_lang('help_refresh_assets_warning')
                 )
                 ->mapClass([
                     'upgrade' => ['hidden' => '__h_up__'],
@@ -630,24 +608,24 @@ class Extension extends Controller
 
         if (!$remote) {
             $table->getToolbar()
-                ->btnLink(url('import'), 'zip包上传', 'btn-pink', 'mdi-cloud-upload', 'data-layer-szie="400px,250px" title="zip包上传扩展"');
+                ->btnLink(url('import'), __admin_lang('btn_zip_upload'), 'btn-pink', 'mdi-cloud-upload', 'data-layer-szie="400px,250px" title="' . __admin_lang('page_zip_upload') . '"');
 
             if (ExtLoader::isWebman()) {
                 $table->getToolbar()
-                    ->btnLink(url('makeRoute'), '生成路由', 'btn-danger', 'mdi-format-strikethrough', 'data-layer-szie="400px,250px" title="为扩展重新生成路由"');
+                    ->btnLink(url('makeRoute'), __admin_lang('btn_make_route'), 'btn-danger', 'mdi-format-strikethrough', 'data-layer-szie="400px,250px" title="' . __admin_lang('page_make_route') . '"');
             }
         }
 
         $table->getToolbar()
             ->btnRefresh()
-            ->html('<label class="label label-default">注意：部分扩展同时支持`composer`和`extend`模式。同一个扩展不能同时安装两种模式的，或跨模式升级。</label>')->pullRight();
+            ->html('<label class="label label-default">' . __admin_lang('label_usage_note') . '</label>')->pullRight();
 
         $table->useCheckbox(false);
         $table->useExport(false);
         $table->useChooseColumns(false);
 
         if ($first_install == 1) {
-            $table->addBottom()->content()->display('<div style="padding:10px"><h5>首次安装提示：</h5>安装完成点此<a href="' . url('/admin/index') . '">[进入后台]</a><br>此页面排版错乱？点此<a href="' . url('prepare') . '">[刷新]</a>样式资源</div>');
+            $table->addBottom()->content()->display('<div style="padding:10px"><h5>' . __admin_lang('msg_first_install_tip_title') . '</h5>' . __admin_lang('msg_first_install_tip_line1') . '<a href="' . url('/admin/index') . '">[' . __admin_lang('btn_enter_admin') . ']</a><br>' . __admin_lang('msg_first_install_tip_line2') . '<a href="' . url('prepare') . '">[' . __admin_lang('btn_refresh_styles') . ']</a>' . __admin_lang('msg_first_install_tip_line3') . '</div>');
         }
 
         $pagesize = 14;
@@ -667,24 +645,24 @@ class Extension extends Controller
         $key = input('key');
 
         if (empty($key)) {
-            return Builder::getInstance()->layer()->close(0, '参数有误！');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_param_error'));
         }
 
         $id = str_replace('-', '\\', $key);
 
         if (!isset($this->extensions[$id])) {
-            return Builder::getInstance()->layer()->close(0, '扩展不存在！');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_ext_not_exists'));
         }
 
         $installed = ExtLoader::getInstalled();
 
         if (empty($installed) && $id != Module::class) {
-            return Builder::getInstance()->layer()->close(0, '已安装扩展为空！请确保数据库连接正常，然后安装[tpext.manager]');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_installed_empty'));
         }
 
         $instance = $this->extensions[$id];
 
-        $builder = Builder::getInstance('扩展管理', '安装-' . $instance->getTitle());
+        $builder = Builder::getInstance(__admin_lang('page_extension_manage'), __admin_lang('page_install') . '-' . $instance->getTitle());
 
         if (request()->isPost()) {
 
@@ -695,9 +673,9 @@ class Extension extends Controller
 
             if ($res) {
                 if (empty($errors)) {
-                    return $builder->layer()->closeRefresh(1, '安装成功');
+                    return $builder->layer()->closeRefresh(1, __admin_lang('msg_install_success'));
                 } else {
-                    return $builder->layer()->closeRefresh(0, '安装成功，但可能有些错误');
+                    return $builder->layer()->closeRefresh(0, __admin_lang('msg_install_success_with_errors'));
                 }
             } else {
 
@@ -706,7 +684,7 @@ class Extension extends Controller
                     $text[] = $err->getMessage();
                 }
 
-                $builder->content()->display('<h5>执行出错：</h5>{$errors|raw}', ['errors' => implode('<br>', $text)]);
+                $builder->content()->display('<h5>' . __admin_lang('msg_execute_error') . '</h5>{$errors|raw}', ['errors' => implode('<br>', $text)]);
 
                 return $builder->render();
             }
@@ -722,18 +700,18 @@ class Extension extends Controller
         $key = input('key');
 
         if (empty($key)) {
-            return Builder::getInstance()->layer()->close(0, '参数有误！');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_param_error'));
         }
 
         $id = str_replace('-', '\\', $key);
 
         if (!isset($this->extensions[$id])) {
-            return Builder::getInstance()->layer()->close(0, '扩展不存在！');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_ext_not_exists'));
         }
 
         $instance = $this->extensions[$id];
 
-        $builder = Builder::getInstance('扩展管理', '卸载-' . $instance->getTitle());
+        $builder = Builder::getInstance(__admin_lang('page_extension_manage'), __admin_lang('page_uninstall') . '-' . $instance->getTitle());
 
         if (request()->isPost()) {
 
@@ -745,9 +723,9 @@ class Extension extends Controller
 
             if ($res) {
                 if (empty($errors)) {
-                    return $builder->layer()->closeRefresh(1, '卸载成功');
+                    return $builder->layer()->closeRefresh(1, __admin_lang('msg_uninstall_success'));
                 } else {
-                    return $builder->layer()->closeRefresh(0, '卸载成功，但可能有些错误');
+                    return $builder->layer()->closeRefresh(0, __admin_lang('msg_uninstall_success_with_errors'));
                 }
             } else {
 
@@ -756,7 +734,7 @@ class Extension extends Controller
                     $text[] = $err->getMessage();
                 }
 
-                $builder->content()->display('<h5>执行出错：</h5>{$errors|raw}', ['errors' => implode('<br>', $text)]);
+                $builder->content()->display('<h5>' . __admin_lang('msg_execute_error') . '</h5>{$errors|raw}', ['errors' => implode('<br>', $text)]);
 
                 return $builder->render();
             }
@@ -771,24 +749,24 @@ class Extension extends Controller
     public function upgrade()
     {
         if (input('from_update') == 1 && ExtLoader::isWebman()) { //webman,下载更新以后跳转升级页面，需要重启一下
-            ExtLoader::reloadWebman('下载新了插件版本，重启');
+            ExtLoader::reloadWebman(__admin_lang('msg_reload_webman'));
         }
 
         $key = input('key');
 
         if (empty($key)) {
-            return Builder::getInstance()->layer()->close(0, '参数有误！');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_param_error'));
         }
 
         $id = str_replace('-', '\\', $key);
 
         if (!isset($this->extensions[$id])) {
-            return Builder::getInstance()->layer()->close(0, '扩展不存在！');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_ext_not_exists'));
         }
 
         $instance = $this->extensions[$id];
 
-        $builder = Builder::getInstance('扩展管理', '升级-' . $instance->getTitle());
+        $builder = Builder::getInstance(__admin_lang('page_extension_manage'), __admin_lang('page_upgrade') . '-' . $instance->getTitle());
 
         if (request()->isPost()) {
 
@@ -799,9 +777,9 @@ class Extension extends Controller
 
             if ($res) {
                 if (empty($errors)) {
-                    return $builder->layer()->closeRefresh(1, '升级成功');
+                    return $builder->layer()->closeRefresh(1, __admin_lang('msg_upgrade_success'));
                 } else {
-                    return $builder->layer()->closeRefresh(0, '升级成功，但可能有些错误');
+                    return $builder->layer()->closeRefresh(0, __admin_lang('msg_upgrade_success_with_errors'));
                 }
             } else {
 
@@ -810,7 +788,7 @@ class Extension extends Controller
                     $text[] = $err->getMessage();
                 }
 
-                $builder->content()->display('<h5>执行出错：</h5>{$errors|raw}', ['errors' => implode('<br>', $text)]);
+                $builder->content()->display('<h5>' . __admin_lang('msg_execute_error') . '</h5>{$errors|raw}', ['errors' => implode('<br>', $text)]);
 
                 return $builder->render();
             }
@@ -833,7 +811,7 @@ class Extension extends Controller
         $now_version = input('now_version');
 
         if (empty($key)) {
-            return Builder::getInstance()->layer()->close(0, '参数有误！');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_param_error'));
         }
 
         $name = str_replace('-', '.', $key);
@@ -850,12 +828,12 @@ class Extension extends Controller
         }
 
         if (!$data) {
-            return Builder::getInstance()->layer()->close(0, '扩展不存在-' . $name);
+            return Builder::getInstance()->layer()->close(0, sprintf(__admin_lang('msg_ext_not_exists_name'), $name));
         }
 
         $data['now_version'] = $now_version;
 
-        $builder = Builder::getInstance('扩展管理', '更新-' . $data['title']);
+        $builder = Builder::getInstance(__admin_lang('page_extension_manage'), __admin_lang('page_update') . '-' . $data['title']);
 
         if (request()->isPost()) {
 
@@ -867,7 +845,7 @@ class Extension extends Controller
 
                 $errors = $this->extensionLogic->getErrors();
 
-                $builder->content()->display('<h5>下载解压时出错：</h5>{$errors|raw}', ['errors' => implode('<br>', $errors)]);
+                $builder->content()->display('<h5>' . __admin_lang('msg_download_unzip_error') . '</h5>{$errors|raw}', ['errors' => implode('<br>', $errors)]);
                 return $builder->render();
             }
 
@@ -897,7 +875,7 @@ class Extension extends Controller
             }
 
             if (!$findInstance) {
-                $builder->content()->display('<h5>执行出错：</h5>未匹配到扩展<script>parent.$(".search-refresh").trigger("click");</script>');
+                $builder->content()->display('<h5>' . __admin_lang('msg_execute_error') . '</h5>' . __admin_lang('msg_no_match_extension') . '<script>parent.$(".search-refresh").trigger("click");</script>');
                 return $builder->render();
             }
 
@@ -915,29 +893,29 @@ class Extension extends Controller
             if ($findInstall) {
                 $upgradeUrl = (string) url('upgrade', ['key' => $findKey, 'from_update' => 1]);
 
-                $builder->content()->display('<h5>下载最新压缩包成功，您需要安装才能体验最新功能，<a class="btn btn-xs btn-success" href="{$url|raw}">点此去升级</a></h5><script>parent.$(".search-refresh").trigger("click");</script>', ['url' => $upgradeUrl]);
+                $builder->content()->display('<h5>' . __admin_lang('msg_download_to_upgrade') . '<a class="btn btn-xs btn-success" href="' . $upgradeUrl . '">' . __admin_lang('btn_go_to_upgrade') . '</a></h5><script>parent.$(".search-refresh").trigger("click");</script>');
             } else {
                 $installUrl = (string) url('install', ['key' => $findKey]);
 
-                $builder->content()->display('<h5>下载最新压缩包成功，您需要安装才能体验最新功能，<a class="btn btn-xs btn-success" href="{$url|raw}">点此去安装</a></h5><script>parent.$(".search-refresh").trigger("click");</script>', ['url' => $installUrl]);
+                $builder->content()->display('<h5>' . __admin_lang('msg_download_to_install') . '<a class="btn btn-xs btn-success" href="' . $installUrl . '">' . __admin_lang('btn_go_to_install') . '</a></h5><script>parent.$(".search-refresh").trigger("click");</script>');
             }
 
             return $builder->render();
         } else {
 
             $form = $builder->form();
-            $form->show('title', '名称');
-            $form->show('name', '标识');
-            $form->match('is_free', '免费')->options([1 => '是', 0 => '否']);
-            $form->show('platform', 'TP版本支持');
-            $form->show('change', '版本')->to('{now_version} => {version}');
-            $form->show('extend_download', '压缩包地址');
+            $form->show('title');
+            $form->show('name');
+            $form->match('is_free')->options([1 => __admin_lang('label_yes'), 0 => __admin_lang('label_no')]);
+            $form->show('platform');
+            $form->show('change')->to('{now_version} => {version}');
+            $form->show('extend_download');
 
             $form->fill($data);
             $form->ajax(false);
 
-            $form->btnSubmit('更&nbsp;&nbsp;新', '6 col-lg-6 col-sm-6 col-xs-6', 'btn-success');
-            $form->btnLayerClose('返&nbsp;&nbsp;回', '6 col-lg-6 col-sm-6 col-xs-6');
+            $form->btnSubmit(__admin_lang('btn_submit_update'), '6 col-lg-6 col-sm-6 col-xs-6', 'btn-success');
+            $form->btnLayerClose(__admin_lang('btn_back'), '6 col-lg-6 col-sm-6 col-xs-6');
 
             return $builder->render();
         }
@@ -954,7 +932,7 @@ class Extension extends Controller
         $key = input('key');
 
         if (empty($key)) {
-            return Builder::getInstance()->layer()->close(0, '参数有误！');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_param_error'));
         }
 
         $name = str_replace('-', '.', $key);
@@ -971,10 +949,10 @@ class Extension extends Controller
         }
 
         if (!$data) {
-            return Builder::getInstance()->layer()->close(0, '扩展不存在-' . $name);
+            return Builder::getInstance()->layer()->close(0, sprintf(__admin_lang('msg_ext_not_exists_name'), $name));
         }
 
-        $builder = Builder::getInstance('扩展管理', '下载-' . $data['title']);
+        $builder = Builder::getInstance(__admin_lang('page_extension_manage'), __admin_lang('page_download') . '-' . $data['title']);
 
         if (request()->isPost()) {
 
@@ -986,7 +964,7 @@ class Extension extends Controller
 
                 $errors = $this->extensionLogic->getErrors();
 
-                $builder->content()->display('<h5>下载解压时出错：</h5>{$errors|raw}', ['errors' => implode('<br>', $errors)]);
+                $builder->content()->display('<h5>' . __admin_lang('msg_download_unzip_error') . '</h5>{$errors|raw}', ['errors' => implode('<br>', $errors)]);
                 return $builder->render();
             }
 
@@ -1015,7 +993,7 @@ class Extension extends Controller
             }
 
             if (!$findInstance) {
-                $builder->content()->display('<h5>执行出错：</h5>未匹配到扩展<script>parent.$(".search-refresh").trigger("click");</script>');
+                $builder->content()->display('<h5>' . __admin_lang('msg_execute_error') . '</h5>' . __admin_lang('msg_no_match_extension') . '<script>parent.$(".search-refresh").trigger("click");</script>');
                 return $builder->render();
             }
 
@@ -1023,23 +1001,23 @@ class Extension extends Controller
 
             $installUrl = (string) url('install', ['key' => $findKey]);
 
-            $builder->content()->display('<h5>下载最新压缩包成功，您需要安装才能体验最新功能，<a class="btn btn-xs btn-success" href="{$url|raw}">点此去安装</a></h5><script>parent.$(".search-refresh").trigger("click");</script>', ['url' => $installUrl]);
+            $builder->content()->display('<h5>' . __admin_lang('msg_download_to_install') . '<a class="btn btn-xs btn-success" href="' . $installUrl . '">' . __admin_lang('btn_go_to_install') . '</a></h5><script>parent.$(".search-refresh").trigger("click");</script>');
             return $builder->render();
         } else {
 
             $form = $builder->form();
-            $form->show('title', '名称');
-            $form->show('name', '标识');
-            $form->match('is_free', '免费')->options([1 => '是', 0 => '否']);
-            $form->show('platform', 'TP版本支持');
-            $form->show('version', '版本');
-            $form->show('extend_download', '压缩包地址');
+            $form->show('title');
+            $form->show('name');
+            $form->match('is_free')->options([1 => __admin_lang('label_yes'), 0 => __admin_lang('label_no')]);
+            $form->show('platform');
+            $form->show('version');
+            $form->show('extend_download');
 
             $form->fill($data);
             $form->ajax(false);
 
-            $form->btnSubmit('下&nbsp;&nbsp;载', '6 col-lg-6 col-sm-6 col-xs-6', 'btn-success');
-            $form->btnLayerClose('返&nbsp;&nbsp;回', '6 col-lg-6 col-sm-6 col-xs-6');
+            $form->btnSubmit(__admin_lang('btn_submit_download'), '6 col-lg-6 col-sm-6 col-xs-6', 'btn-success');
+            $form->btnLayerClose(__admin_lang('btn_back'), '6 col-lg-6 col-sm-6 col-xs-6');
 
             return $builder->render();
         }
@@ -1078,8 +1056,8 @@ class Extension extends Controller
             }
 
             $form = $builder->form();
-            $form->file('fileurl', 'zip上传')->jsOptions(['ext' => ['zip']])->required()->help('上传zip文件');
-            $form->password('validate', '验证字符')->required()->help(!file_exists($checkFile) ? '请在网站目录新建[extend/validate.txt]文件，里面填入任意字符串，然后再此输入。' : '输入网站目录下[extend/validate.txt]文件中的字符串内容');
+            $form->file('fileurl')->jsOptions(['ext' => ['zip']])->required()->help(__admin_lang('help_zip_upload'));
+            $form->password('validate')->required()->help(!file_exists($checkFile) ? __admin_lang('help_validate_create') : __admin_lang('help_validate'));
 
             return $builder->render();
         }
@@ -1088,7 +1066,7 @@ class Extension extends Controller
         $validate = input('validate');
 
         if (!file_exists($checkFile)) {
-            $this->error('[extend/validate.txt]文件不存在');
+            $this->error(__admin_lang('msg_file_not_exists'));
         }
 
         $try_validate = Session::get('admin_try_extend_validate');
@@ -1104,7 +1082,7 @@ class Extension extends Controller
             $time_gone = time() - $try_validate;
 
             if ($time_gone < $errors) {
-                $this->error('错误次数过多，请' . ($errors - $time_gone) . '秒后再试');
+                $this->error(sprintf(__admin_lang('msg_too_many_errors'), $errors - $time_gone));
             }
         }
 
@@ -1112,7 +1090,7 @@ class Extension extends Controller
             $errors += 1;
             Session::set('admin_try_extend_validate', time());
             Session::set('admin_try_extend_validate_errors', $errors);
-            $this->error('文件验证失败：验证字符串不匹配');
+            $this->error(__admin_lang('msg_validate_failed'));
         }
 
         $installRes = $this->extensionLogic->installExtend('.' . $fileurl, 1);
@@ -1121,7 +1099,7 @@ class Extension extends Controller
 
             $errors = $this->extensionLogic->getErrors();
 
-            $this->error('解压安装包时出错：' . implode('<br>', $errors));
+            $this->error(__admin_lang('msg_unzip_error') . implode('<br>', $errors));
         }
 
         $this->extensionLogic->getExtendExtensions(true);
@@ -1130,7 +1108,7 @@ class Extension extends Controller
 
         ExtLoader::bindExtensions();
 
-        return $builder->layer()->closeRefresh(1, '上传成功');
+        return $builder->layer()->closeRefresh(1, __admin_lang('msg_upload_success'));
     }
 
     /**
@@ -1141,7 +1119,7 @@ class Extension extends Controller
         RouteLoader::load(true);
 
         $builder = Builder::getInstance();
-        return $builder->layer()->closeRefresh(1, '已重新生成路由');
+        return $builder->layer()->closeRefresh(1, __admin_lang('msg_route_regenerated'));
     }
 
     /**
@@ -1165,52 +1143,52 @@ class Extension extends Controller
             }
         }
 
-        $form->tab('基本信息');
-        $form->raw('name', '标识')->value($instance->getName());
-        $form->raw('title', '标题')->value($instance->getTitle());
-        $form->raw('tags', '类型')->value($instance->getTags());
-        $form->raw('desc', '介绍')->value($instance->getDescription());
-        $form->raw('version', '版本号')->value($instance->getVersion());
+        $form->tab(__admin_lang('help_basic_info'));
+        $form->raw('name')->value($instance->getName());
+        $form->raw('title')->value($instance->getTitle());
+        $form->raw('tags')->value($instance->getTags());
+        $form->raw('desc')->value($instance->getDescription());
+        $form->raw('version')->value($instance->getVersion());
         if ($type == 1) {
             if (is_file($instance->getRoot() . 'data' . DIRECTORY_SEPARATOR . 'install.sql')) {
-                $form->show('sql', '安装脚本')->value('安装将运行SQL脚本');
+                $form->show('sql')->value(__admin_lang('label_install_will_run_sql'));
             } else {
-                $form->show('sql', '安装脚本')->value('无');
+                $form->show('sql')->value(__admin_lang('label_none'));
             }
         } else if ($type == 2) {
             if (is_file($instance->getRoot() . 'data' . DIRECTORY_SEPARATOR . 'uninstall.sql')) {
 
                 $app_debug = config('app_debug');
 
-                $form->checkbox('sql', '卸载脚本')->options([1 => '卸载将运行SQL脚本'])->value($app_debug ? 1 : 0)->help($app_debug ? '<label class="label label-default">当前为调试模式</label>' : '<label class="label label-danger">当前为非调试模式，谨慎操作</label>');
+                $form->checkbox('sql')->options([1 => __admin_lang('label_uninstall_will_run_sql')])->value($app_debug ? 1 : 0)->help($app_debug ? '<label class="label label-default">' . __admin_lang('label_debug_mode') . '</label>' : '<label class="label label-danger">' . __admin_lang('label_non_debug_mode') . '</label>');
             } else {
-                $form->show('uninstall', '卸载脚本')->value('无');
+                $form->show('uninstall')->value(__admin_lang('label_none'));
             }
         }
 
         if ($isModule) {
-            $form->tab('模块&菜单');
-            $form->raw('modules', '提供模块')->value(!empty($bindModules) ? '<pre>' . implode("\n", $bindModules) . '</pre>' : '无');
-            $form->raw('menus', '提供菜单')->value(!empty($menus) ? '<pre>' . implode("\n", $this->menusTree($menus)) . '</pre>' : '无');
+            $form->tab(__admin_lang('help_modules_menus'));
+            $form->raw('modules')->value(!empty($bindModules) ? '<pre>' . implode("\n", $bindModules) . '</pre>' : __admin_lang('label_none'));
+            $form->raw('menus')->value(!empty($menus) ? '<pre>' . implode("\n", $this->menusTree($menus)) . '</pre>' : __admin_lang('label_none'));
         }
 
-        $form->tab('README.md');
-        $README = '暂无';
+        $form->tab(__admin_lang('help_readme'));
+        $README = __admin_lang('label_no_data');
 
         if (is_file($instance->getRoot() . 'README.md')) {
             $README = file_get_contents($instance->getRoot() . 'README.md');
         }
         $form->mdreader('README')->jsOptions(['readOnly' => true, 'width' => 1200])->size(0, 12)->showLabel(false)->value($README);
 
-        $form->tab('CHANGELOG.md', $type == 3);
-        $README = '暂无';
+        $form->tab(__admin_lang('help_changelog'), $type == 3);
+        $README = __admin_lang('label_no_data');
         if (is_file($instance->getRoot() . 'CHANGELOG.md')) {
             $README = file_get_contents($instance->getRoot() . 'CHANGELOG.md');
         }
         $form->mdreader('CHANGELOG')->jsOptions(['readOnly' => true, 'width' => 1200])->size(0, 12)->showLabel(false)->value($README);
 
-        $form->tab('LICENSE.txt');
-        $LICENSE = '暂无';
+        $form->tab(__admin_lang('help_license'));
+        $LICENSE = __admin_lang('label_no_data');
         if (is_file($instance->getRoot() . 'LICENSE.txt')) {
             $LICENSE = '<pre>' . htmlspecialchars(file_get_contents($instance->getRoot() . 'LICENSE.txt')) . '</pre>';
         } else if (is_file($instance->getRoot() . 'LICENSE')) {
@@ -1222,14 +1200,14 @@ class Extension extends Controller
         $form->ajax(false);
 
         if ($type == 1) {
-            $form->btnSubmit('安&nbsp;&nbsp;装', '6 col-lg-6 col-sm-6 col-xs-6', 'btn-success');
-            $form->btnLayerClose('返&nbsp;&nbsp;回', '6 col-lg-6 col-sm-6 col-xs-6');
+            $form->btnSubmit(__admin_lang('btn_submit'), '6 col-lg-6 col-sm-6 col-xs-6', 'btn-success');
+            $form->btnLayerClose(__admin_lang('btn_back'), '6 col-lg-6 col-sm-6 col-xs-6');
         } else if ($type == 2) {
-            $form->btnSubmit('卸&nbsp;&nbsp;载', '6 col-lg-6 col-sm-6 col-xs-6', 'btn-danger');
-            $form->btnLayerClose('返&nbsp;&nbsp;回', '6 col-lg-6 col-sm-6 col-xs-6');
+            $form->btnSubmit(__admin_lang('btn_submit_uninstall'), '6 col-lg-6 col-sm-6 col-xs-6', 'btn-danger');
+            $form->btnLayerClose(__admin_lang('btn_back'), '6 col-lg-6 col-sm-6 col-xs-6');
         } else if ($type == 3) {
-            $form->btnSubmit('升&nbsp;&nbsp;级', '6 col-lg-6 col-sm-6 col-xs-6', 'btn-warning');
-            $form->btnLayerClose('返&nbsp;&nbsp;回', '6 col-lg-6 col-sm-6 col-xs-6');
+            $form->btnSubmit(__admin_lang('btn_submit_upgrade'), '6 col-lg-6 col-sm-6 col-xs-6', 'btn-warning');
+            $form->btnLayerClose(__admin_lang('btn_back'), '6 col-lg-6 col-sm-6 col-xs-6');
         }
     }
 
@@ -1275,14 +1253,14 @@ class Extension extends Controller
         $ids = array_filter(explode(',', $ids), 'strlen');
 
         if (empty($ids)) {
-            $this->error('参数有误');
+            $this->error(__admin_lang('msg_param_error'));
         }
 
         $instance = $this->extensions[$ids[0]];
 
         $instance->copyAssets(true);
 
-        $this->success('刷新成功');
+        $this->success(__admin_lang('msg_refresh_success'));
     }
 
     public function enable()
@@ -1291,13 +1269,13 @@ class Extension extends Controller
         $value = input('post.value', '0');
 
         if (empty($id)) {
-            $this->error('参数有误');
+            $this->error(__admin_lang('msg_param_error'));
         }
 
         $id = str_replace('-', '\\', $id);
 
         if (!isset($this->extensions[$id])) {
-            $this->error('扩展不存在！');
+            $this->error(__admin_lang('msg_ext_not_exists'));
         }
 
         $instance = $this->extensions[$id];
@@ -1305,9 +1283,9 @@ class Extension extends Controller
 
         if ($res) {
             $this->dataModel->update(['enable' => $value], ['key' => $id]);
-            $this->success(($value == 1 ? '启用' : '禁用') . '成功');
+            $this->success(($value == 1 ? __admin_lang('msg_enable_success') : __admin_lang('msg_disable_success')));
         } else {
-            $this->error('操作失败');
+            $this->error(__admin_lang('msg_operation_failed'));
         }
     }
 
@@ -1316,7 +1294,7 @@ class Extension extends Controller
         $token = Session::get('_csrf_token_');
 
         if (empty($token) || $token != input('__token__')) {
-            $this->error('token错误');
+            $this->error(__admin_lang('msg_token_error'));
         }
     }
 }

@@ -6,6 +6,7 @@ use tpext\think\App;
 use think\Controller;
 use tpext\common\ExtLoader;
 use tpext\common\TpextCore;
+use tpext\manager\common\Module;
 use tpext\builder\Common\Form;
 use tpext\builder\common\Table;
 use tpext\builder\common\Builder;
@@ -28,6 +29,8 @@ class Config extends Controller
 
     protected function initialize()
     {
+        Module::getInstance()->loadLang('config');
+
         $this->extensions = ExtLoader::getExtensions();
 
         $this->extensions[TpextCore::class] = TpextCore::getInstance();
@@ -41,7 +44,7 @@ class Config extends Controller
     {
         $confkey = input('confkey');
 
-        $builder = Builder::getInstance('配置管理', '配置修改');
+        $builder = Builder::getInstance(__admin_lang('page_config_manage'), __admin_lang('page_config_edit'));
 
         $installed = ExtLoader::getInstalled();
 
@@ -51,20 +54,20 @@ class Config extends Controller
             $data = request()->post();
 
             if (!isset($data['config_key'])) {
-                $this->success('重新加载配置...', url('index'));
+                $this->success(__admin_lang('msg_reload_config'), url('index'));
             }
 
             $config_key = $data['config_key'];
 
             $theConfig = $this->dataModel->where('key', $config_key)->find();
             if (!$theConfig) {
-                $this->success('key：' . $config_key . '不存在，重新加载配置...', url('index'));
+                $this->success(sprintf(__admin_lang('msg_key_not_exists'), $config_key), url('index'));
             }
 
             $filePath = $rootPath . str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $theConfig['file']);
 
             if (!is_file($filePath)) {
-                $this->error('原始配置文件不存在：' . $theConfig['file']);
+                $this->error(sprintf(__admin_lang('msg_original_config_not_found'), $theConfig['file']));
             }
 
             $default = include $filePath;
@@ -75,9 +78,9 @@ class Config extends Controller
             $res = $this->seveConfig($default, $data, $config_key, $filePath);
 
             if ($res) {
-                $this->success('修改成功，页面即将刷新~', url('index', ['confkey' => $config_key]));
+                $this->success(__admin_lang('msg_edit_success_refreshing'), url('index', ['confkey' => $config_key]));
             } else {
-                $this->error('修改失败，或无变化');
+                $this->error(__admin_lang('msg_edit_failed_or_no_change'));
             }
         } else {
             $tab = $builder->tab()->vertical();
@@ -144,10 +147,10 @@ class Config extends Controller
                 $form->hidden('config_key')->value($oth['key']);
                 $form->method('put');
                 $this->buildConfig($form, $default, $saved);
-                $form->html('', '配置键')->value("<pre>" . $oth['key'] . "</pre>")->size(2, 8);
+                $form->html('', __admin_lang('config_key'))->value("<pre>" . $oth['key'] . "</pre>")->size(2, 8);
             }
 
-            $table = $tab->table('更多设置', $confkey == '__config_list__');
+            $table = $tab->table(__admin_lang('page_more_settings'), $confkey == '__config_list__');
             $this->buildList($table);
 
             return $builder->render();
@@ -165,8 +168,8 @@ class Config extends Controller
             ], 'post');
 
             $result = $this->validate($data, [
-                'title|名称' => 'require',
-                'file|文件路径' => 'require',
+                'title|' . __admin_lang('title') => 'require',
+                'file|' . __admin_lang('file') => 'require',
             ]);
 
             if (true !== $result) {
@@ -176,15 +179,15 @@ class Config extends Controller
             $filePath = App::getRootPath() . $data['file'];
 
             if (!is_file($filePath)) {
-                $this->error('文件不存在，请核查');
+                $this->error(__admin_lang('msg_file_not_found'));
             }
 
             if (!preg_match('/.+?(\w+)\.php$/', $data['file'], $matches)) {
-                $this->error('不是php文件，请核查');
+                $this->error(__admin_lang('msg_not_php_file'));
             }
 
             if (preg_match('/config\/(app|database)\.php$/i', $data['file'])) {
-                $this->error('安全原因禁止创建！');
+                $this->error(__admin_lang('msg_forbidden_for_security'));
             }
 
             if (empty($data['key'])) {
@@ -192,7 +195,7 @@ class Config extends Controller
             }
 
             if ($this->dataModel->where(['key' => $data['key']])->find()) {
-                $this->error('key已存在，请核查：' . $data['key']);
+                $this->error(sprintf(__admin_lang('msg_key_already_exists'), $data['key']));
             }
 
             $config = include $filePath;
@@ -209,9 +212,9 @@ class Config extends Controller
             );
 
             if ($res) {
-                return Builder::getInstance()->layer()->closeGo(1, '创建成功', url('index', ['confkey' => $data['key']]));
+                return Builder::getInstance()->layer()->closeGo(1, __admin_lang('msg_create_success'), url('index', ['confkey' => $data['key']]));
             } else {
-                $this->error('创建失败');
+                $this->error(__admin_lang('msg_create_failed'));
             }
         } else {
 
@@ -222,34 +225,34 @@ class Config extends Controller
                 'allowSuffix' => 'jpg,jpeg,gif,wbmp,webpg,png,bmp',
                 'maxSize' => 20,
                 'isRandName' => 1,
-                //配置描述 ,若无则默认为text
+                //Config description, defaults to text if not set
                 '__config__' => [
-                    'allowSuffix' => ['type' => 'textarea', 'label' => '允许上传的文件后缀', 'size' => [2, 10], 'help' => '以英文,号分割'],
-                    'maxSize' => ['type' => 'number', 'label' => '上传文件大小限制(MB)', 'col_size' => 6, 'size' => [3, 8], 'required' => 1],
-                    'isRandName' => ['type' => 'radio', 'label' => '随机文件名', 'options' => [0 => '否', 1 => '是'], 'col_size' => 6, 'size' => [3, 8]],
-                ], //支持【tpext-builder】表单元素 ，不是太复杂的大多能满足。配置的值尽量为常规类型，如果是数组则会转换成json。
-                
+                    'allowSuffix' => ['type' => 'textarea', 'label' => 'Allowed file extensions', 'size' => [2, 10], 'help' => 'Separated by commas'],
+                    'maxSize' => ['type' => 'number', 'label' => 'Upload size limit (MB)', 'col_size' => 6, 'size' => [3, 8], 'required' => 1],
+                    'isRandName' => ['type' => 'radio', 'label' => 'Random filename', 'options' => [0 => 'No', 1 => 'Yes'], 'col_size' => 6, 'size' => [3, 8]],
+                ], //Supports [tpext-builder] form elements, most needs can be met. Config values should be regular types; arrays will be converted to JSON.
+
                 // '__config__' => function(\\tpext\\builder\\common\\Form \$form, &\$data){
-                //     \$form->textarea('allowSuffix', '允许上传的文件后缀')->size(2, 10)->help('以英文,号分割');
-                //     \$form->number('maxSize', '上传文件大小限制(MB)', 6)->size(3, 8)->required();
-                //     \$form->radio('isRandName', '随机文件名', 6)->size(3, 8)->options([0 => '否', 1 => '是']);
+                //     \$form->textarea('allowSuffix', 'Allowed file extensions')->size(2, 10)->help('Separated by commas');
+                //     \$form->number('maxSize', 'Upload size limit (MB)', 6)->size(3, 8)->required();
+                //     \$form->radio('isRandName', 'Random filename', 6)->size(3, 8)->options([0 => 'No', 1 => 'Yes']);
                 // },
-                // 定义保存时的回调，除非特殊情况
+                // Define save callback, unless special circumstances
                 // '__saving__' => function(\$data, \$values){
-                //     // \$data 为表单提交数据,\$values为经过处理的数据
+                //     // \$data is form submitted data, \$values is the processed data
                 //     return \$values;
                 // },
             ];
-            //使用 \\tpext\\common\\model\\WebConfig::config('myconfig');//不支持config('myconfig');
+            //Usage: \\tpext\\common\\model\\WebConfig::config('myconfig');//Does not support config('myconfig');
             </pre>
 EOT;
-            $builder = Builder::getInstance('配置管理', '添加');
+            $builder = Builder::getInstance(__admin_lang('page_config_manage'), __admin_lang('page_add'));
             $form = $builder->form();
-            $form->text('title', '名称')->required()->help('给配置取个名字，如: 商城');
-            $form->text('key', '配置键')->help('不填则以文件名为键');
-            $form->text('file', '文件路径')->required()->beforSymbol('<code>RootPath .</code>')
-                ->help('文件路径，从网站根目录开始，如 <code>conf/myconfig.php</code>(不建议使用`config`/里面的文件做配置)');
-            $form->raw('template', '示例')->value($template)->size(2, 10);
+            $form->text('title')->required()->help(__admin_lang('help_config_name'));
+            $form->text('key')->help(__admin_lang('help_config_key_empty'));
+            $form->text('file')->required()->beforSymbol('<code>RootPath .</code>')
+                ->help(__admin_lang('help_file_path'));
+            $form->raw('template')->value($template)->size(2, 10);
 
             return $builder->render();
         }
@@ -260,7 +263,7 @@ EOT;
         $key = input('key');
 
         if (empty($key)) {
-            return Builder::getInstance()->layer()->close(0, '参数有误！');
+            return Builder::getInstance()->layer()->close(0, __admin_lang('msg_param_error'));
         }
 
         $key = strtolower(str_replace('-', '_', $key));
@@ -291,12 +294,12 @@ EOT;
             $title = $instance->getTitle();
         }
 
-        $builder = Builder::getInstance('配置管理', '配置-' . $title);
+        $builder = Builder::getInstance(__admin_lang('page_config_manage'), __admin_lang('page_config_edit') . '-' . $title);
 
         if (request()->isAjax()) {
 
             if (!is_file($filePath)) {
-                $this->error('原始配置文件不存在：' . $theConfig['file']);
+                $this->error(sprintf(__admin_lang('msg_original_config_not_found'), $theConfig['file']));
             }
 
             $data = request()->post();
@@ -304,9 +307,9 @@ EOT;
             $res = $this->seveConfig($default, $data, $key, $filePath);
 
             if ($res) {
-                return $builder->layer()->closeRefresh(1, '修改成功，页面即将刷新~');
+                return $builder->layer()->closeRefresh(1, __admin_lang('msg_edit_success_refreshing'));
             } else {
-                return $builder->layer()->closeRefresh(0, '修改失败，或无变化');
+                return $builder->layer()->closeRefresh(0, __admin_lang('msg_edit_failed_or_no_change'));
             }
         } else {
 
@@ -324,7 +327,7 @@ EOT;
                         ]
                     );
                 } else {
-                    return Builder::getInstance()->layer()->close(0, '配置不存在！');
+                    return Builder::getInstance()->layer()->close(0, __admin_lang('msg_config_not_exists'));
                 }
             }
 
@@ -343,21 +346,21 @@ EOT;
         $value = input('value', '');
 
         if (empty($id) || empty($name)) {
-            $this->error('参数有误');
+            $this->error(__admin_lang('msg_param_error'));
         }
 
         $allow = ['title'];
 
         if (!in_array($name, $allow)) {
-            $this->error('不允许的操作');
+            $this->error(__admin_lang('msg_operation_not_allowed'));
         }
 
         $res = $this->dataModel->update([$name => $value], ['id' => $id]);
 
         if ($res) {
-            $this->success('修改成功');
+            $this->success(__admin_lang('msg_edit_success'));
         } else {
-            $this->error('修改失败');
+            $this->error(__admin_lang('msg_edit_failed'));
         }
     }
 
@@ -368,7 +371,7 @@ EOT;
         $ids = array_filter(explode(',', $ids), 'strlen');
 
         if (empty($ids)) {
-            $this->error('参数有误');
+            $this->error(__admin_lang('msg_param_error'));
         }
 
         $res = 0;
@@ -383,20 +386,20 @@ EOT;
         }
 
         if ($res) {
-            $this->success('成功删除' . $res . '条数据', '', ['script' => "<script>location.reload();</script>"]);
+            $this->success(sprintf(__admin_lang('msg_delete_success'), $res), '', ['script' => "<script>location.reload();</script>"]);
         } else {
-            $this->error('删除失败');
+            $this->error(__admin_lang('msg_delete_failed'));
         }
     }
 
     private function buildList(Table &$table)
     {
-        $table->show('id', 'ID');
-        $table->show('key', '配置键');
-        $table->text('title', '名称')->autoPost()->getWrapper()->addStyle('max-width:80px');
-        $table->show('file', '路径');
-        $table->show('create_time', '添加时间')->getWrapper()->addStyle('width:180px');
-        $table->show('update_time', '修改时间')->getWrapper()->addStyle('width:180px');
+        $table->show('id');
+        $table->show('key');
+        $table->text('title')->autoPost()->getWrapper()->addStyle('max-width:80px');
+        $table->show('file');
+        $table->show('create_time')->getWrapper()->addStyle('width:180px');
+        $table->show('update_time')->getWrapper()->addStyle('width:180px');
 
         $table->getToolbar()
             ->btnAdd()
@@ -428,23 +431,23 @@ EOT;
 
         if (request()->isGet()) {
 
-            $builder = Builder::getInstance('配置管理', '配置查看');
+            $builder = Builder::getInstance(__admin_lang('page_config_manage'), __admin_lang('page_config_view'));
 
             $data = $this->dataModel->find($id);
             if (!$data) {
-                return $builder->layer()->close(0, '数据不存在');
+                return $builder->layer()->close(0, __admin_lang('msg_data_not_exists'));
             }
 
             $form = $builder->form();
-            $form->show('id', 'ID');
-            $form->show('key', '配置键');
-            $form->show('title', '名称');
-            $form->show('file', '路径');
-            $form->show('create_time', '添加时间');
-            $form->show('update_time', '修改时间');
+            $form->show('id');
+            $form->show('key');
+            $form->show('title');
+            $form->show('file');
+            $form->show('create_time');
+            $form->show('update_time');
             $form->fill($data);
 
-            $form->html('config', '配置内容')->display(
+            $form->html('config')->display(
                 '<pre style="white-space:pre-wrap;word-break:break-all;">{$data}</pre>',
                 ['data' => json_encode(json_decode($data['config']), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)]
             )->size(2, 10);
@@ -517,7 +520,7 @@ EOT;
                 }
                 if (in_array($fieldType, ['radio', 'select', 'checkbox', 'multipleSelect', 'dualListbox', 'transfer'])) {
 
-                    $field->options(isset($type['options']) ? $type['options'] : [0 => '为什么没有选项？', 1 => '？项选有没么什为']);
+                    $field->options(isset($type['options']) ? $type['options'] : [0 => __admin_lang('msg_why_no_options'), 1 => __admin_lang('msg_why_no_options_reverse')]);
                 }
             } else if (strpos($key, '__br__') !== false) {
 

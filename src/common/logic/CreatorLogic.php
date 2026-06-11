@@ -186,7 +186,7 @@ class CreatorLogic
         $this->lines[] = '';
 
         $this->lines[] = '/**';
-        $this->lines[] = ' * @time tpextmanager 生成于' . date('Y-m-d H:i:s');
+        $this->lines[] = ' * @time tpextmanager ' . __admin_lang('generated_time') . date('Y-m-d H:i:s');
         $this->lines[] = ' * @title ' . $controllerTitle;
         $this->lines[] = ' */';
 
@@ -226,8 +226,8 @@ class CreatorLogic
         $this->lines[] = "        \$this->pk = 'id';";
         $this->lines[] = "        \$this->pagesize = 14;";
         $this->lines[] = "        \$this->sortOrder = 'id desc';";
-        $this->lines[] = "        \$this->indexWith = [" . implode(', ', $indexWith) . "]; //列表页关联";
-        $this->lines[] = "        \$this->selectWith = []; //下拉数据关联";
+        $this->lines[] = "        \$this->indexWith = [" . implode(', ', $indexWith) . "]; //" . __admin_lang('comment_index_with');
+        $this->lines[] = "        \$this->selectWith = []; //" . __admin_lang('comment_select_with');
 
         $tableToolbars = $data['table_toolbars'] ?? [];
         $tableActions = $data['table_actions'] ?? [];
@@ -269,7 +269,7 @@ class CreatorLogic
 
         $this->lines[] = '';
         $this->lines[] = '    /**';
-        $this->lines[] = '     * 构建表格';
+        $this->lines[] = '     * ' . __admin_lang('build_table');
         $this->lines[] = '     * @param array $data';
         $this->lines[] = '     * @param boolean $isExporting';
         $this->lines[] = '     * @return mixed';
@@ -310,7 +310,7 @@ class CreatorLogic
                     if (!empty($field['FIELD_RELATION']) && preg_match('/^(\w+)\[(\w+),\s*(\w+)\]$/i', trim($field['FIELD_RELATION']), $mch)) {
                         $line .= "->optionsData(\\think\\facade\\Db::name('{$mch[1]}')->select(), '{$mch[2]}', '{$mch[3]}')";
                     } else {
-                        $line .= "->options([/*选项*/])";
+                        $line .= "->options([/*" . __admin_lang('label_options') . "*/])";
                     }
                 }
 
@@ -338,7 +338,8 @@ class CreatorLogic
             }
 
             if (in_array('enable', $tableToolbars)) {
-                $sline[] = "            ->btnEnableAndDisable('正常', '禁用')";
+                $sline[] = "            ->btnEnableAndDisable('" . __admin_lang('label_enable') . "', '" . __admin_lang('label_disable') . "')";
+
             }
 
             if (in_array('import', $tableToolbars)) {
@@ -370,7 +371,8 @@ class CreatorLogic
             }
 
             if (in_array('enable', $tableActions)) {
-                $sline[] = "            ->btnEnableAndDisable('正常', '禁用')";
+                $sline[] = "            ->btnEnableAndDisable('" . __admin_lang('label_enable') . "', '" . __admin_lang('label_disable') . "')";
+
             }
 
             if (in_array('delete', $tableActions)) {
@@ -402,7 +404,7 @@ class CreatorLogic
     {
         $this->lines[] = '';
         $this->lines[] = '    /**';
-        $this->lines[] = '     * 构建搜索条件';
+        $this->lines[] = '     * ' . __admin_lang('build_filter_where');
         $this->lines[] = '     * @return mixed';
         $this->lines[] = '     */';
         $this->lines[] = '    protected function filterWhere()';
@@ -475,7 +477,7 @@ class CreatorLogic
     {
         $this->lines[] = '';
         $this->lines[] = '    /**';
-        $this->lines[] = '     * 构建搜索';
+        $this->lines[] = '     * ' . __admin_lang('build_search');
         $this->lines[] = '     * @return mixed';
         $this->lines[] = '     */';
         $this->lines[] = '    protected function buildSearch()';
@@ -552,7 +554,7 @@ class CreatorLogic
     {
         $this->lines[] = '';
         $this->lines[] = '    /**';
-        $this->lines[] = '     * 构建表单';
+        $this->lines[] = '     * ' . __admin_lang('build_form');
         $this->lines[] = '     * @param int|boolean $isEdit';
         $this->lines[] = '     * @param array|\think\Model $data';
         $this->lines[] = '     * @return mixed';
@@ -595,7 +597,7 @@ class CreatorLogic
                     if (!empty($field['FIELD_RELATION']) && preg_match('/^(\w+)\[(\w+),\s*(\w+)\]$/i', trim($field['FIELD_RELATION']), $mch)) {
                         $line .= "->optionsData(\\think\\facade\\Db::name('{$mch[1]}')->select(), '{$mch[2]}', '{$mch[3]}')";
                     } else {
-                        $line .= "->options([/*选项*/])";
+                        $line .= "->options([/*" . __admin_lang('label_options') . "*/])";
                     }
                 } else if ($field['DISPLAYER_TYPE'] == 'switchBtn') {
                     $line .= "->default(1)";
@@ -636,7 +638,7 @@ class CreatorLogic
     {
         $this->lines[] = '';
         $this->lines[] = '    /**';
-        $this->lines[] = '     * 保存数据';
+        $this->lines[] = '     * ' . __admin_lang('save_data');
         $this->lines[] = '     * @param integer $id';
         $this->lines[] = '     * @return mixed';
         $this->lines[] = '     */';
@@ -665,7 +667,7 @@ class CreatorLogic
                 if (preg_match('/^(?:parent_id|pid)$/i', $field['COLUMN_NAME'])) {
                     $this->lines[] = '';
                     $this->lines[] = '        if ($id && $data[\'' . $field['COLUMN_NAME'] . '\'] == $id) {';
-                    $this->lines[] = '            $this->error(\'上级不能是本身\');';
+                    $this->lines[] = "            $this->error('" . __admin_lang('msg_parent_cannot_be_self') . "');";
                     $this->lines[] = '        }';
                     break;
                 }
@@ -720,7 +722,7 @@ class CreatorLogic
         $lines[] = '';
 
         $lines[] = '/**';
-        $lines[] = ' * @time tpextmanager 生成于' . date('Y-m-d H:i:s');
+        $lines[] = ' * @time tpextmanager ' . __admin_lang('generated_time') . date('Y-m-d H:i:s');
         $lines[] = ' * @title ' . $modelTitle;
         $lines[] = ' */';
 
@@ -839,7 +841,7 @@ class CreatorLogic
         if (count($datetimes)) {
             $lines[] = '';
 
-            $lines[] = '    //自动生成的时间日期转换，不需要则删除';
+            $lines[] = '    //' . __admin_lang('comment_auto_datetime');
 
             foreach ($datetimes as $dt) {
                 $dt = Str::studly($dt);
@@ -868,7 +870,7 @@ class CreatorLogic
                 $lines[] = '    }';
             }
 
-            $lines[] = '    //时间日期转换结束';
+            $lines[] = '    //' . __admin_lang('comment_datetime_end');
 
             $lines[] = '';
         }
@@ -1138,7 +1140,7 @@ class CreatorLogic
         $lines[] = "<?php";
         $lines[] = '';
         $lines[] = '/**';
-        $lines[] = ' * @time tpextmanager 生成于' . date('Y-m-d H:i:s');
+        $lines[] = ' * @time tpextmanager ' . __admin_lang('generated_time') . date('Y-m-d H:i:s');
         $lines[] = ' * @title ' . $tableTitle;
         $lines[] = ' */';
         $lines[] = '';
@@ -1159,8 +1161,8 @@ class CreatorLogic
                     }
                 }
 
-                if ($field['COLUMN_NAME'] == 'id' && $field['COLUMN_COMMENT'] == '主键') {
-                    $field['COLUMN_COMMENT'] = '编号';
+                if ($field['COLUMN_NAME'] == 'id' && $field['COLUMN_COMMENT'] == __admin_lang('label_pk')) {
+                    $field['COLUMN_COMMENT'] = __admin_lang('label_id_num');
                 } else if (preg_match('/^(.+?)id$/i', $field['COLUMN_COMMENT'], $mch)) {
                     $field['COLUMN_COMMENT'] = $mch[1];
                 }
@@ -1169,10 +1171,10 @@ class CreatorLogic
 
                 if (preg_match('/^\w*?(time|date)$/i', $field['COLUMN_NAME'])) {
                     if (!isset($fields[$field['COLUMN_NAME'] . '_start'])) {
-                        $lines[] = "    '{$field['COLUMN_NAME']}_start'  => '{$field['COLUMN_COMMENT']}起',";
+                        $lines[] = "    '{$field['COLUMN_NAME']}_start'  => '{$field['COLUMN_COMMENT']}" . __admin_lang('label_start') . "',";
                     }
                     if (!isset($fields[$field['COLUMN_NAME'] . '_end'])) {
-                        $lines[] = "    '{$field['COLUMN_NAME']}_end'  => '{$field['COLUMN_COMMENT']}止',";
+                        $lines[] = "    '{$field['COLUMN_NAME']}_end'  => '{$field['COLUMN_COMMENT']}" . __admin_lang('label_end') . "',";
                     }
                 }
             }

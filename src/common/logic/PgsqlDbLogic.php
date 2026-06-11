@@ -8,17 +8,17 @@ use \think\facade\Log;
 class PgsqlDbLogic extends AbstractDbLogic
 {
     public static $FIELD_TYPES = [
-        'smallint' => 'Smallint (2 bytes)',
-        'integer' => 'Integer (4 bytes)',
-        'bigint' => 'Bigint (8 bytes)',
+        'smallint' => 'Smallint',
+        'integer' => 'Integer',
+        'bigint' => 'Bigint',
         'decimal' => 'Decimal(n,d)',
         'numeric' => 'Numeric(n,d)',
         'real' => 'Real (4 bytes)',
-        'double precision' => 'Double precision (8 bytes)',
+        'double precision' => 'Double',
         'boolean' => 'Boolean',
         'date' => 'Date',
-        'timestamp' => 'Timestamp(n)',
-        'timestamptz' => 'Timestamptz(n)',
+        'timestamp' => 'Timestp(n)',
+        'timestamptz' => 'Timestpz(n)',
         'time' => 'Time(n)',
         'timetz' => 'Timetz(n)',
         'interval' => 'Interval(n)',
@@ -392,7 +392,7 @@ class PgsqlDbLogic extends AbstractDbLogic
         $tableInfo = $this->getTableInfo($tableName, 'TABLE_NAME');
 
         if ($tableInfo) {
-            $this->errors[] = '表名已存在';
+            $this->errors[] = __admin_lang('msg_table_name_exists');
             return false;
         }
 
@@ -403,7 +403,7 @@ class PgsqlDbLogic extends AbstractDbLogic
         if (empty($pkinfo)) {
             $pkinfo = [
                 'COLUMN_NAME' => 'id',
-                'COLUMN_COMMENT' => '主键',
+                'COLUMN_COMMENT' => __admin_lang('label_pk'),
                 'DATA_TYPE' => 'integer',
                 'LENGTH' => '',
                 'ATTR' =>
@@ -539,8 +539,8 @@ class PgsqlDbLogic extends AbstractDbLogic
     public function getFieldAttrOptions()
     {
         return [
-            'create' => ['auto_inc' => '自增'],
-            'edit' => ['auto_inc' => '自增', 'index' => '索引', 'unique' => '唯一'],
+            'create' => ['auto_inc' => __admin_lang('attr_auto_inc')],
+            'edit' => ['auto_inc' => __admin_lang('attr_auto_inc'), 'index' => __admin_lang('attr_index'), 'unique' => __admin_lang('attr_unique')],
         ];
     }
 

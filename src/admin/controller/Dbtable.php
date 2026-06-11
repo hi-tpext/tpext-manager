@@ -10,6 +10,7 @@ use tpext\common\ExtLoader;
 use tpext\manager\common\logic\DbLogic;
 use tpext\manager\common\logic\DbBackupLogic;
 use tpext\manager\common\logic\AbstractDbLogic;
+use tpext\manager\common\Module;
 use tpext\builder\traits\actions\HasBase;
 use tpext\builder\traits\actions\HasIndex;
 
@@ -33,10 +34,12 @@ class Dbtable extends Controller
 
     protected function initialize()
     {
-        $this->pageTitle = '数据表管理';
+        Module::getInstance()->loadLang('dbtable');
+
+        $this->pageTitle = __admin_lang('page_dbtable_manage');
 
         if (!config('app_debug')) {
-            $this->indexText = '不建议在[正式环境]中使用这些功能！';
+            $this->indexText = __admin_lang('msg_not_recommend_production');
         }
 
         $this->pk = 'TABLE_NAME';
@@ -69,7 +72,7 @@ class Dbtable extends Controller
     {
         $search = $this->search;
 
-        $search->text('kwd', '表名/表注释', 4)->maxlength(55);
+        $search->text('kwd', __admin_lang('opt_search_kwd'), 4)->maxlength(55);
     }
 
     /**
@@ -118,7 +121,7 @@ class Dbtable extends Controller
             }
 
             $form = $builder->form();
-            $form->password('validate', '验证字符')->required()->help(!file_exists($checkFile) ? '请在网站目录新建[extend/validate.txt]文件，里面填入任意字符串，然后再此输入。' : '输入网站目录下[extend/validate.txt]文件中的字符串内容');
+            $form->password('validate')->required()->help(!file_exists($checkFile) ? __admin_lang('help_validate_create') : __admin_lang('help_validate'));
 
             return $builder->render();
         }
@@ -126,7 +129,7 @@ class Dbtable extends Controller
         $validate = input('validate');
 
         if (!file_exists($checkFile)) {
-            $this->error('[extend/validate.txt]文件不存在');
+            $this->error(__admin_lang('msg_file_not_exists'));
         }
 
         $try_validate = Session::get('admin_try_db_manage_validate');
@@ -142,7 +145,7 @@ class Dbtable extends Controller
             $time_gone = time() - $try_validate;
 
             if ($time_gone < $errors) {
-                $this->error('错误次数过多，请' . ($errors - $time_gone) . '秒后再试');
+                $this->error(sprintf(__admin_lang('msg_too_many_errors'), $errors - $time_gone));
             }
         }
 
@@ -150,12 +153,12 @@ class Dbtable extends Controller
             $errors += 1;
             Session::set('admin_try_db_manage_validate', time());
             Session::set('admin_try_db_manage_validate_errors', $errors);
-            $this->error('文件验证失败：验证字符串不匹配');
+            $this->error(__admin_lang('msg_validate_failed'));
         }
 
         Session::set('admin_try_db_manage_ok', time());
 
-        $this->success('已完成验证', url('trash'), '', 1);
+        $this->success(__admin_lang('msg_validate_done'), url('trash'), '', 1);
     }
 
     private function randstr($randLength = 16)
@@ -198,7 +201,7 @@ class Dbtable extends Controller
         $builder = $this->builder($this->pageTitle, $this->editText);
         $data = $this->dbLogic->getTableInfo($id);
         if (!$data) {
-            return $builder->layer()->close(0, '数据不存在');
+            return $builder->layer()->close(0, __admin_lang('msg_data_not_exists'));
         }
         $form = $builder->form();
         $this->form = $form;
@@ -218,12 +221,12 @@ class Dbtable extends Controller
     {
         $form = $this->form;
 
-        $form->text('TABLE_NAME', '表名')->required()->maxlength(50)->help($isEdit ? ' 若非必要，请不要随意修改' : '英文字母或数字组成')->default($this->prefix);
-        $form->text('TABLE_COMMENT', '表注释')->required()->maxlength(50)->help('表的描述说明');
+        $form->text('TABLE_NAME')->required()->maxlength(50)->help($isEdit ? __admin_lang('help_table_name_edit') : __admin_lang('help_table_name'))->default($this->prefix);
+        $form->text('TABLE_COMMENT')->required()->maxlength(50)->help(__admin_lang('help_table_comment'));
 
         if ($isEdit) {
 
-            $form->raw('fields', '字段管理')->value('<a href="#" id="go-fields">前往&gt;&gt;</a>');
+            $form->raw('fields')->value('<a href="#" id="go-fields">' . __admin_lang('btn_go_to_fields') . '</a>');
 
             $url = url('fieldlist', ['name' => $data['TABLE_NAME']]);
 
@@ -244,15 +247,15 @@ class Dbtable extends Controller
 
             $data['DATA_SIZE'] = $this->dbLogic->getDataSize($data);
 
-            $form->tab('基本信息');
-            $form->show('TABLE_ROWS', '记录条数');
-            $form->show('AUTO_INCREMENT', '自增id');
-            $form->show('DATA_SIZE', '数据大小')->to('{val}MB');
-            $form->show('TABLE_COLLATION', '排序规则');
-            $form->show('ENGINE', '存储引擎');
-            $form->show('CREATE_TIME', '创建时间');
+            $form->tab(__admin_lang('help_basic_info'));
+            $form->show('TABLE_ROWS');
+            $form->show('AUTO_INCREMENT');
+            $form->show('DATA_SIZE')->to('{val}MB');
+            $form->show('TABLE_COLLATION');
+            $form->show('ENGINE');
+            $form->show('CREATE_TIME');
 
-            $form->tab('建表语句');
+            $form->tab(__admin_lang('help_sql_script'));
             $createTableSql = $this->dbLogic->getCreateTableSql($data['TABLE_NAME']);
             $form->raw('sql', ' ')->value(!empty($createTableSql) ? '<pre>' . $createTableSql . '</pre>' : '-')->size(0, 12);
             $protectedTables = $this->getProtectedTables();
@@ -261,18 +264,18 @@ class Dbtable extends Controller
             }
         } else {
             $pkdata = [
-                ['id' => 'pk', 'COLUMN_NAME' => 'id', 'COLUMN_COMMENT' => '主键', 'DATA_TYPE' => $this->dbLogic->getDefaultPkType(), 'LENGTH' => 10, 'ATTR' => $this->dbLogic->getDefaultPkAttr(), '__can_delete__' => 0],
-                ['id' => 'create_time', 'COLUMN_NAME' => 'create_time', 'COLUMN_COMMENT' => '添加时间', 'DATA_TYPE' => $this->dbLogic->getDefaultDatetimeType(), 'LENGTH' => 0, 'ATTR' => '', '__can_delete__' => 1],
-                ['id' => 'update_time', 'COLUMN_NAME' => 'update_time', 'COLUMN_COMMENT' => '更新时间', 'DATA_TYPE' => $this->dbLogic->getDefaultDatetimeType(), 'LENGTH' => 0, 'ATTR' => '', '__can_delete__' => 1],
+                ['id' => 'pk', 'COLUMN_NAME' => 'id', 'COLUMN_COMMENT' => __admin_lang('label_pk'), 'DATA_TYPE' => $this->dbLogic->getDefaultPkType(), 'LENGTH' => 10, 'ATTR' => $this->dbLogic->getDefaultPkAttr(), '__can_delete__' => 0],
+                ['id' => 'create_time', 'COLUMN_NAME' => 'create_time', 'COLUMN_COMMENT' => __admin_lang('label_create_time'), 'DATA_TYPE' => $this->dbLogic->getDefaultDatetimeType(), 'LENGTH' => 0, 'ATTR' => '', '__can_delete__' => 1],
+                ['id' => 'update_time', 'COLUMN_NAME' => 'update_time', 'COLUMN_COMMENT' => __admin_lang('label_update_time'), 'DATA_TYPE' => $this->dbLogic->getDefaultDatetimeType(), 'LENGTH' => 0, 'ATTR' => '', '__can_delete__' => 1],
             ];
             //预设字段，在此处就不允许再添加其他字段了。
-            $form->items('fields', '字段信息')->dataWithId($pkdata)->canAdd(false)->size(2, 10)
+            $form->items('fields')->dataWithId($pkdata)->canAdd(false)->size(2, 10)
                 ->with(
-                    $form->text('COLUMN_NAME', '字段名')->required(),
-                    $form->text('COLUMN_COMMENT', '注释')->required(),
-                    $form->select('DATA_TYPE', '类型')->options($this->dbLogic->getFieldTypes())->required()->getWrapper()->addStyle('width:160px;'),
-                    $form->text('LENGTH', '长度')->getWrapper()->addStyle('width:100px;'),
-                    $form->checkbox('ATTR', '属性')->options($this->dbLogic->getFieldAttrOptions()['create'])->getWrapper()->addStyle('width:160px;')
+                    $form->text('COLUMN_NAME')->required(),
+                    $form->text('COLUMN_COMMENT')->required(),
+                    $form->select('DATA_TYPE')->options($this->dbLogic->getFieldTypes())->required()->getWrapper()->addStyle('width:160px;'),
+                    $form->text('LENGTH')->getWrapper()->addStyle('width:100px;'),
+                    $form->checkbox('ATTR')->options($this->dbLogic->getFieldAttrOptions()['create'])->getWrapper()->addStyle('width:160px;')
                 );
         }
     }
@@ -296,8 +299,8 @@ class Dbtable extends Controller
         }
 
         $result = $this->validate($data, [
-            'TABLE_NAME|表名' => 'require|regex:[a-zA-Z_][a-zA-Z_\d]*',
-            'TABLE_COMMENT|表注释' => 'require',
+            'TABLE_NAME|' . __admin_lang('table_name') => 'require|regex:[a-zA-Z_][a-zA-Z_\d]*',
+            'TABLE_COMMENT|' . __admin_lang('table_comment') => 'require',
         ]);
 
         if (true !== $result) {
@@ -312,11 +315,11 @@ class Dbtable extends Controller
         }
 
         if (!$res) {
-            $this->error('保存失败' . $this->dbLogic->getErrorsText());
+            $this->error(__admin_lang('msg_save_failed') . $this->dbLogic->getErrorsText());
         }
 
         if ($id) {
-            return $this->builder()->layer()->closeRefresh(1, '保存成功');
+            return $this->builder()->layer()->closeRefresh(1, __admin_lang('msg_save_success'));
         }
 
         $script = "<script>
@@ -330,7 +333,7 @@ class Dbtable extends Controller
 
         </script>";
 
-        $this->success('新建表成功', url('fieldlist', ['name' => $data['TABLE_NAME']]), ['script' => $script], 0.5);
+        $this->success(__admin_lang('msg_create_table_success'), url('fieldlist', ['name' => $data['TABLE_NAME']]), ['script' => $script], 0.5);
     }
 
     /**
@@ -342,26 +345,26 @@ class Dbtable extends Controller
     {
         $protectedTables = $this->getProtectedTables();
         $table = $this->table;
-        $table->text('TABLE_NAME', '表名')->mapClass($protectedTables, 'disabled')->autoPost('', true)->getWrapper()->addStyle('width:260px');
-        $table->text('TABLE_COMMENT', '表注释')->autoPost('', true)->getWrapper()->addStyle('width:260px');
-        $table->raw('TABLE_ROWS', '记录条数');
-        $table->show('AUTO_INCREMENT', '自增id');
-        $table->show('DATA_LENGTH', '数据大小')->to('{val} MB');
-        $table->raw('DATA_FREE', '碎片大小')->to(function ($val, $row) {
+        $table->text('TABLE_NAME')->mapClass($protectedTables, 'disabled')->autoPost('', true)->getWrapper()->addStyle('width:260px');
+        $table->text('TABLE_COMMENT')->autoPost('', true)->getWrapper()->addStyle('width:260px');
+        $table->raw('TABLE_ROWS');
+        $table->show('AUTO_INCREMENT');
+        $table->show('DATA_LENGTH')->to('{val} MB');
+        $table->raw('DATA_FREE')->to(function ($val, $row) {
             if ($this->dbLogic->needOptimize($row)) {
-                return $val . ' MB' . '<a data-url="' . url('optimize', ['name' => $row['TABLE_NAME']]) . '" onclick="layerOpen(this)" href="javascript:;" title="优化表" data-layer-size="600px,auto">[优化]</a>';
+                return $val . ' MB' . '<a data-url="' . url('optimize', ['name' => $row['TABLE_NAME']]) . '" onclick="layerOpen(this)" href="javascript:;" title="' . __admin_lang('page_optimize') . '" data-layer-size="600px,auto">[' . __admin_lang('btn_optimize') . ']</a>';
             } else {
                 return $val . ' MB';
             }
         });
-        $table->show('TABLE_COLLATION', '排序规则');
-        $table->show('ENGINE', '存储引擎');
-        $table->show('CREATE_TIME', '创建时间')->getWrapper()->addStyle('width:160px');
+        $table->show('TABLE_COLLATION');
+        $table->show('ENGINE');
+        $table->show('CREATE_TIME')->getWrapper()->addStyle('width:160px');
 
         foreach ($data as &$d) {
             $d['DATA_LENGTH'] = $this->dbLogic->getDataSize($d);
             $d['DATA_FREE'] = $this->dbLogic->getDataFreeSize($d);
-            $d['TABLE_ROWS'] = '<a target="_blank" title="查看数据" href="' . url('datalist', ['name' => $d['TABLE_NAME']]) . '">' . $d['TABLE_ROWS'] . '</a>';
+            $d['TABLE_ROWS'] = '<a target="_blank" title="' . __admin_lang('btn_view_data') . '" href="' . url('datalist', ['name' => $d['TABLE_NAME']]) . '">' . $d['TABLE_ROWS'] . '</a>';
         }
 
         unset($d);
@@ -370,14 +373,14 @@ class Dbtable extends Controller
             ->btnAdd('', '', 'btn-primary', 'mdi-plus', 'data-layer-size="1200px,98%"')
             ->btnRefresh()
             ->btnToggleSearch()
-            ->btnLink(url('trash'), '回收站', 'btn-danger', 'mdi-delete-variant')
-            ->btnOpenChecked(url('backup'), '备份', 'btn-info', 'mdi-backup-restore', 'data-layer-size="600px;350px;"');
+            ->btnLink(url('trash'), __admin_lang('btn_trash'), 'btn-danger', 'mdi-delete-variant')
+            ->btnOpenChecked(url('backup'), __admin_lang('btn_backup'), 'btn-info', 'mdi-backup-restore', 'data-layer-size="600px;350px;"');
 
         $table->getActionbar()
             ->btnEdit()
-            ->btnLink('fields', url('fieldlist', ['name' => '__data.pk__']), '', 'btn-success', 'mdi-format-list-bulleted-type', 'title="字段管理" data-layer-size="98%,98%"')
-            ->btnLink('relations', url('/admin/creator/relations', ['id' => '__data.pk__']), '', 'btn-info', 'mdi-link-variant', 'title="设置表关联" data-layer-size="1210px,98%"')
-            ->btnLink('lang', url('/admin/creator/lang', ['id' => '__data.pk__']), '', 'btn-danger', 'mdi-translate', 'title="生成翻译文件"')
+            ->btnLink('fields', url('fieldlist', ['name' => '__data.pk__']), '', 'btn-success', 'mdi-format-list-bulleted-type', 'title="' . __admin_lang('btn_field_manage') . '" data-layer-size="98%,98%"')
+            ->btnLink('relations', url('/admin/creator/relations', ['id' => '__data.pk__']), '', 'btn-info', 'mdi-link-variant', 'title="' . __admin_lang('btn_table_relations') . '" data-layer-size="1210px,98%"')
+            ->btnLink('lang', url('/admin/creator/lang', ['id' => '__data.pk__']), '', 'btn-danger', 'mdi-translate', 'title="' . __admin_lang('btn_lang_gen') . '"')
             ->btnDelete();
 
         $table->sortable('TABLE_NAME,TABLE_ROWS,CREATE_TIME,TABLE_COLLATION,AUTO_INCREMENT,DATA_LENGTH,DATA_FREE');
@@ -391,22 +394,22 @@ class Dbtable extends Controller
      */
     public function optimize($name)
     {
-        $builder = $this->builder('碎片优化', $name);
+        $builder = $this->builder(__admin_lang('page_optimize'), $name);
         $optimizeSql = $this->dbLogic->getOptimizeSql($name);
         if (request()->isGet()) {
             $form = $builder->form();
             $form->raw('sql')->value("<pre>{$optimizeSql}</pre>");
-            $form->raw('操作提示')->value('<p>注意：[优化表]操作可能会锁表(几秒或几十秒，期间无法写入数据)，不建议在业务高峰期执行。如果优化后仍然存在碎片，是正常现象，不要频繁操作。</p>');
-            $form->btnSubmit('执行');
-            $form->btnLayerClose('取消', '6 col-xl-6 col-lg-6 col-sm-6 col-xs-6', 'btn-default');
+            $form->raw('op_tips')->value('<p>' . __admin_lang('help_optimize') . '</p>');
+            $form->btnSubmit(__admin_lang('btn_execute'));
+            $form->btnLayerClose(__admin_lang('btn_cancel'), '6 col-xl-6 col-lg-6 col-sm-6 col-xs-6', 'btn-default');
 
             return $builder;
         } else {
             $res = $this->dbLogic->optimizeTable($name);
             if ($res) {
-                return $builder->layer()->closeRefresh(1, '碎片优化成功');
+                return $builder->layer()->closeRefresh(1, __admin_lang('msg_optimize_success'));
             } else {
-                return $builder->layer()->closeRefresh(0, '碎片优化失败');
+                return $builder->layer()->closeRefresh(0, __admin_lang('msg_optimize_failed'));
             }
         }
     }
@@ -420,16 +423,16 @@ class Dbtable extends Controller
     public function trash()
     {
         if (empty(Session::get('admin_try_db_manage_ok'))) {
-            $this->error('请先完成安全验证', url('managevalidate'), '', 1);
+            $this->error(__admin_lang('msg_validate_first'), url('managevalidate'), '', 1);
         }
 
-        $builder = $this->builder($this->pageTitle, '回收站');
+        $builder = $this->builder($this->pageTitle, __admin_lang('page_trash'));
         $table = $builder->table();
-        $table->match('type', '类型')->options(['table' => '表', 'field' => '字段'])->mapClassGroup([['table', 'success'], ['field', 'info']]);
-        $table->raw('name', '名称');
-        $table->show('comment', '注释');
-        $table->show('delete_time', '删除时间')->getWrapper()->addStyle('width:180px');
-        $table->raw('table_data', '数据')->getWrapper()->addStyle('width:180px');
+        $table->match('type')->options(['table' => __admin_lang('label_table'), 'field' => __admin_lang('label_field')])->mapClassGroup([['table', 'success'], ['field', 'info']]);
+        $table->raw('name');
+        $table->show('comment');
+        $table->show('delete_time')->getWrapper()->addStyle('width:180px');
+        $table->raw('table_data')->getWrapper()->addStyle('width:180px');
 
         $data = [];
 
@@ -443,7 +446,7 @@ class Dbtable extends Controller
                 'comment' => $dtable['TABLE_COMMENT'],
                 'type' => 'table',
                 'delete_time' => date('Y-m-d H:i:s', $arr[1]),
-                'table_data' => '<a target="_blank" title="查看数据" href="' . url('datalist', ['name' => $dtable['TABLE_NAME']]) . '">查看</a>',
+                'table_data' => '<a target="_blank" title="' . __admin_lang('btn_view_data') . '" href="' . url('datalist', ['name' => $dtable['TABLE_NAME']]) . '">' . __admin_lang('btn_view_data') . '</a>',
             ];
         }
 
@@ -462,7 +465,7 @@ class Dbtable extends Controller
                     'comment' => $field['COLUMN_COMMENT'],
                     'type' => 'field',
                     'delete_time' => date('Y-m-d H:i:s', $arr[1]),
-                    'table_data' => '<a target="_blank" title="查看数据" href="' . url('datalist', ['name' => $dtable['TABLE_NAME'], 'show_field' => $field['COLUMN_NAME']]) . '">查看</a>',
+                    'table_data' => '<a target="_blank" title="' . __admin_lang('btn_view_data') . '" href="' . url('datalist', ['name' => $dtable['TABLE_NAME'], 'show_field' => $field['COLUMN_NAME']]) . '">' . __admin_lang('btn_view_data') . '</a>',
                 ];
             }
         }
@@ -470,8 +473,8 @@ class Dbtable extends Controller
         $table->fill($data);
 
         $table->getActionbar()
-            ->btnDelete(url('destroy'), '删除', 'btn-danger', 'mdi-delete', 'title="彻底删除表或字段"', '删除后数据不可恢复，确定要执行此操作吗？')
-            ->btnPostRowid('recovery', url('recovery'), '恢复', 'btn-success', 'mdi-backup-restore', 'title="恢复表或字段"');
+            ->btnDelete(url('destroy'), __admin_lang('btn_destroy'), 'btn-danger', 'mdi-delete', 'title="' . __admin_lang('page_destroy') . '"', __admin_lang('msg_destroy_confirm'))
+            ->btnPostRowid('recovery', url('recovery'), __admin_lang('btn_recovery'), 'btn-success', 'mdi-backup-restore', 'title="' . __admin_lang('page_recovery') . '"');
 
         $table->useCheckbox(false);
         $table->useToolbar(false);
@@ -494,7 +497,7 @@ class Dbtable extends Controller
         $ids = input('get.ids', '');
         $ids = array_filter(explode(',', $ids), 'strlen');
         if (empty($ids)) {
-            $this->error('参数有误');
+            $this->error(__admin_lang('msg_param_error'));
         }
         $tab_index = input('get.tab_index', 0);
         $save_path = input('get.save_path', '');
@@ -510,16 +513,16 @@ class Dbtable extends Controller
         if ($tab_index >= count($ids)) {
             $save_path = rtrim($save_path, DIRECTORY_SEPARATOR);
             $logic->compressDir(preg_replace('/^(.+?dbbackup)\d+$/i', '', $save_path), $save_path . '.zip');
-            $builder->display('所有数据库已备份。<br>文件保存在：{$filename}', ['filename' => 'runtime' . DIRECTORY_SEPARATOR . (ExtLoader::isWebman() ? '' : 'admin' . DIRECTORY_SEPARATOR) . $save_path . '.zip']);
+            $builder->display(__admin_lang('msg_backup_done'), ['filename' => 'runtime' . DIRECTORY_SEPARATOR . (ExtLoader::isWebman() ? '' : 'admin' . DIRECTORY_SEPARATOR) . $save_path . '.zip']);
         } else {
             $res = $logic->backupTable($table, $save_path, $filename, $start);
             if ($res[2]) {
                 $tab_index += 1;
                 $url = url('backup') . '?' . http_build_query(['ids' => implode(',', $ids), 'save_path' => $save_path, 'filename' => '', 'tab_index' => $tab_index]);
-                $builder->display('<div class="hidden" id="goon">若页面长时间未刷新，可点此<a href="{$url|raw}">继续</a></div><img src="/assets/tpextbuilder/js/layer/theme/default/loading-1.gif">表：{$table}已备份完成，共{$total}数据。<br>即将开放备份下一张表：{$next}。<script>setTimeout(function(){location.href="{$url|raw}"},1000);setTimeout(function(){$("#goon").removeClass("hidden")},20000);</script>', ['table' => $table, 'url' => $url, 'total' => $res[1], 'next' => $ids[$tab_index] ?? '--']);
+                $builder->display('<div class="hidden" id="goon">' . __admin_lang('msg_backup_continue_hint') . '<a href="{$url|raw}">' . __admin_lang('btn_continue') . '</a></div><img src="/assets/tpextbuilder/js/layer/theme/default/loading-1.gif">' . __admin_lang('msg_backup_table_done') . '<script>setTimeout(function(){location.href="{$url|raw}"},1000);setTimeout(function(){$("#goon").removeClass("hidden")},20000);</script>', ['table' => $table, 'url' => $url, 'total' => $res[1], 'next' => $ids[$tab_index] ?? '--']);
             } else {
                 $url = url('backup') . '?' . http_build_query(['ids' => implode(',', $ids), 'save_path' => $save_path, 'filename' => $filename, 'start' => $res[0], 'tab_index' => $tab_index]);
-                $builder->display('<div class="hidden" id="goon">若页面长时间未刷新，可点此<a href="{$url|raw}">继续</a></div><img src="/assets/tpextbuilder/js/layer/theme/default/loading-1.gif">正在备份表：{$table}，{$count} / {$total}条数据已备份。<script>setTimeout(function(){location.href="{$url|raw}"},1000);setTimeout(function(){$("#goon").removeClass("hidden")},20000);</script>', ['table' => $table, 'url' => $url, 'total' => $res[1], 'count' => $res[0]]);
+                $builder->display('<div class="hidden" id="goon">' . __admin_lang('msg_backup_continue_hint') . '<a href="{$url|raw}">' . __admin_lang('btn_continue') . '</a></div><img src="/assets/tpextbuilder/js/layer/theme/default/loading-1.gif">' . __admin_lang('msg_backup_table_progress') . '<script>setTimeout(function(){location.href="{$url|raw}"},1000);setTimeout(function(){$("#goon").removeClass("hidden")},20000);</script>', ['table' => $table, 'url' => $url, 'total' => $res[1], 'count' => $res[0]]);
             }
         }
 
@@ -538,7 +541,7 @@ class Dbtable extends Controller
         $ids = array_filter(explode(',', $ids), 'strlen');
 
         if (empty($ids)) {
-            $this->error('参数有误');
+            $this->error(__admin_lang('msg_param_error'));
         }
 
         $res = 0;
@@ -556,9 +559,9 @@ class Dbtable extends Controller
         }
 
         if ($res) {
-            $this->success('成功恢复' . $res . '条数据', '', ['script' => '<script>parent.$(".search-refresh").trigger("click");</script>']);
+            $this->success(sprintf(__admin_lang('msg_recovery_success'), $res), '', ['script' => '<script>parent.$(".search-refresh").trigger("click");</script>']);
         } else {
-            $this->error('恢复失败' . $this->dbLogic->getErrorsText());
+            $this->error(__admin_lang('msg_recovery_failed') . $this->dbLogic->getErrorsText());
         }
     }
 
@@ -570,14 +573,14 @@ class Dbtable extends Controller
     public function destroy()
     {
         if (empty(Session::get('admin_try_db_manage_ok'))) {
-            $this->error('请先完成安全验证', url('managevalidate'), '', 1);
+            $this->error(__admin_lang('msg_validate_first'), url('managevalidate'), '', 1);
         }
 
         $ids = input('post.ids', '');
         $ids = array_filter(explode(',', $ids), 'strlen');
 
         if (empty($ids)) {
-            $this->error('参数有误');
+            $this->error(__admin_lang('msg_param_error'));
         }
 
         $res = 0;
@@ -595,9 +598,9 @@ class Dbtable extends Controller
         }
 
         if ($res) {
-            $this->success('成功删除' . $res . '条数据');
+            $this->success(sprintf(__admin_lang('msg_delete_success'), $res));
         } else {
-            $this->error('删除失败' . $this->dbLogic->getErrorsText());
+            $this->error(__admin_lang('msg_delete_failed') . $this->dbLogic->getErrorsText());
         }
     }
 
@@ -608,7 +611,7 @@ class Dbtable extends Controller
         $value = input('post.value', '');
 
         if (empty($id) || empty($name)) {
-            $this->error('参数有误');
+            $this->error(__admin_lang('msg_param_error'));
         }
 
         $res = 0;
@@ -620,9 +623,9 @@ class Dbtable extends Controller
         }
 
         if ($res) {
-            $this->success('修改成功');
+            $this->success(__admin_lang('msg_edit_success'));
         } else {
-            $this->error('修改失败，或无更改' . $this->dbLogic->getErrorsText());
+            $this->error(__admin_lang('msg_edit_failed_no_change') . $this->dbLogic->getErrorsText());
         }
     }
 
@@ -632,13 +635,13 @@ class Dbtable extends Controller
         $ids = array_filter(explode(',', $ids), 'strlen');
 
         if (empty($ids)) {
-            $this->error('参数有误');
+            $this->error(__admin_lang('msg_param_error'));
         }
         $protectedTables = $this->getProtectedTables();
         $res = 0;
         foreach ($ids as $id) {
             if (in_array($id, $protectedTables)) {
-                $this->error('此表不允许删除');
+                $this->error(__admin_lang('msg_table_not_allowed_delete'));
             }
             if ($this->dbLogic->trashTable($id)) {
                 $res += 1;
@@ -646,9 +649,9 @@ class Dbtable extends Controller
         }
 
         if ($res) {
-            $this->success('成功删除' . $res . '条数据');
+            $this->success(sprintf(__admin_lang('msg_delete_success'), $res));
         } else {
-            $this->error('删除失败' . $this->dbLogic->getErrorsText());
+            $this->error(__admin_lang('msg_delete_failed') . $this->dbLogic->getErrorsText());
         }
     }
 
@@ -666,7 +669,7 @@ class Dbtable extends Controller
             return $this->savefields($name);
         }
 
-        $builder = $this->builder('字段管理', $name);
+        $builder = $this->builder(__admin_lang('page_field_manage'), $name);
 
         $form = $builder->form();
 
@@ -729,23 +732,23 @@ class Dbtable extends Controller
                 $field['COLUMN_DEFAULT'] = trim($field['COLUMN_DEFAULT'], "'");
             }
 
-            $moveTo[$field['COLUMN_NAME']] = $field['COLUMN_NAME'] . '后';
+            $moveTo[$field['COLUMN_NAME']] = $field['COLUMN_NAME'] . __admin_lang('label_after');
         }
 
         unset($keys, $field);
 
         $form->items('fields', ' ')->dataWithId($fields, 'COLUMN_NAME')->size(0, 12);
-        $form->text('COLUMN_NAME', '字段名')->required();
-        $form->text('COLUMN_COMMENT', '字段注释')->required();
-        $form->select('DATA_TYPE', '数据类型')->options($this->dbLogic->getFieldTypes())->required()->default('varchar')->getWrapper()->addStyle('width:120px;');
-        $form->text('LENGTH', '长度')->default(0)->getWrapper()->addStyle('width:80px;');
-        $form->text('NUMERIC_SCALE', '小数点')->default(0)->getWrapper()->addStyle('width:60px;');
-        $form->text('COLUMN_DEFAULT', '默认值')->default('');
-        $form->switchBtn('IS_NULLABLE', '可空(NULL)')->getWrapper()->addStyle('width:70px;');
-        $form->checkbox('ATTR', '属性')->options($this->dbLogic->getFieldAttrOptions()['edit'])->getWrapper()->addStyle('width:200px;');
+        $form->text('COLUMN_NAME')->required();
+        $form->text('COLUMN_COMMENT')->required();
+        $form->select('DATA_TYPE')->options($this->dbLogic->getFieldTypes())->required()->default('varchar')->getWrapper()->addStyle('width:120px;');
+        $form->text('LENGTH')->default(0)->getWrapper()->addStyle('width:80px;');
+        $form->text('NUMERIC_SCALE')->default(0)->getWrapper()->addStyle('width:60px;');
+        $form->text('COLUMN_DEFAULT')->default('');
+        $form->switchBtn('IS_NULLABLE')->getWrapper()->addStyle('width:70px;');
+        $form->checkbox('ATTR')->options($this->dbLogic->getFieldAttrOptions()['edit'])->getWrapper()->addStyle('width:200px;');
 
         if ($this->dbLogic->supportsColumnPositioning()) {
-            $form->select('MOVE_AFTER', '移动到')->placeholder('移动字段')->rendering(function ($field) use ($moveTo) {
+            $form->select('MOVE_AFTER')->placeholder(__admin_lang('move_after'))->rendering(function ($field) use ($moveTo) {
                 $options = $moveTo;
                 unset($options[$field->data['COLUMN_NAME']]); //自身字段名从选项中移除
                 $field->options($options);
@@ -770,9 +773,9 @@ class Dbtable extends Controller
 
         foreach ($postfields as $key => &$pfield) {
             $result = $this->validate($pfield, [
-                'COLUMN_NAME|字段名' => 'require|regex:[a-zA-Z_][a-zA-Z_\d]*',
-                'COLUMN_COMMENT|字段注释' => 'require',
-                'DATA_TYPE|字段注释' => 'require',
+                'COLUMN_NAME|' . __admin_lang('column_name') => 'require|regex:[a-zA-Z_][a-zA-Z_\d]*',
+                'COLUMN_COMMENT|' . __admin_lang('column_comment') => 'require',
+                'DATA_TYPE|' . __admin_lang('data_type') => 'require',
             ]);
 
             if (true !== $result) {
@@ -805,10 +808,10 @@ class Dbtable extends Controller
         $errors = array_merge($errors, $this->dbLogic->getErrors());
 
         if (!empty($errors)) {
-            $this->error('保存失败-' . implode('<br>', $errors));
+            $this->error(sprintf(__admin_lang('msg_save_failed'), implode('<br>', $errors)));
         }
 
-        $this->success('保存成功，页面即将刷新~', url('fieldlist', ['name' => $name]), ['script' => '<script>parent.$(".search-refresh").trigger("click");</script>'], 1);
+        $this->success(__admin_lang('msg_save_success_refreshing'), url('fieldlist', ['name' => $name]), ['script' => '<script>parent.$(".search-refresh").trigger("click");</script>'], 1);
     }
 
     /**
@@ -823,7 +826,7 @@ class Dbtable extends Controller
 
         $tableInfo = $this->dbLogic->getTableInfo($name);
 
-        $builder = $this->builder('查看数据', $name . '[' . $tableInfo['TABLE_COMMENT'] . ']');
+        $builder = $this->builder(__admin_lang('page_view_data'), $name . '[' . $tableInfo['TABLE_COMMENT'] . ']');
 
         $table = $builder->table();
 
@@ -857,7 +860,7 @@ class Dbtable extends Controller
         unset($field);
 
         foreach ($deletedFields as $field) {
-            $table->show($field['COLUMN_NAME'], ($field['COLUMN_NAME'] == $show_field ? '<i style="color:red;">=></i>' : '') . $field['COLUMN_NAME'] . '<label class="label label-danger">[已删除]</label>' . '<br>' . $field['COLUMN_COMMENT'])
+            $table->show($field['COLUMN_NAME'], ($field['COLUMN_NAME'] == $show_field ? '<i style="color:red;">=></i>' : '') . $field['COLUMN_NAME'] . '<label class="label label-danger">[' . __admin_lang('label_deleted') . ']</label>' . '<br>' . $field['COLUMN_COMMENT'])
                 ->cut(100)->getWrapper()->addStyle('max-width:400px;max-height:100px;');
         }
 
@@ -908,7 +911,7 @@ class Dbtable extends Controller
 
         $tableInfo = $this->dbLogic->getTableInfo($name);
 
-        $builder = $this->builder('查看数据', $name . '[' . $tableInfo['TABLE_COMMENT'] . ']');
+        $builder = $this->builder(__admin_lang('page_view_data_detail'), $name . '[' . $tableInfo['TABLE_COMMENT'] . ']');
 
         $form = $builder->form();
 

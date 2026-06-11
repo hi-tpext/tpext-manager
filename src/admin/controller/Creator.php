@@ -49,7 +49,9 @@ class Creator extends Controller
 
     protected function initialize()
     {
-        $this->pageTitle = '构建器';
+        Module::getInstance()->loadLang('creator');
+
+        $this->pageTitle = __admin_lang('page_creator');
         $this->pk = 'TABLE_NAME';
 
         $this->creatorLogic = new CreatorLogic;
@@ -86,7 +88,7 @@ class Creator extends Controller
     {
         $search = $this->search;
 
-        $search->text('kwd', '表名/表注释', 4)->maxlength(55);
+        $search->text('kwd', __admin_lang('opt_search_kwd'), 4)->maxlength(55);
     }
 
     /**
@@ -131,13 +133,13 @@ class Creator extends Controller
 
         $protectedTables = $this->getProtectedTables();
         if (in_array($id, $protectedTables)) {
-            return $builder->layer()->close(0, '此表不能允许生成代码');
+            return $builder->layer()->close(0, __admin_lang('msg_table_not_allowed'));
         }
 
         if (request()->isGet()) {
             $data = $this->dbLogic->getTableInfo($id);
             if (!$data) {
-                return $builder->layer()->close(0, '数据不存在');
+                return $builder->layer()->close(0, __admin_lang('msg_data_not_exists'));
             }
             $form = $builder->form();
             $this->form = $form;
@@ -163,17 +165,17 @@ class Creator extends Controller
         $form = $this->form;
         $fields = $this->dbLogic->getFields($data['TABLE_NAME'], 'COLUMN_NAME,COLUMN_TYPE,COLUMN_DEFAULT,COLUMN_COMMENT,IS_NULLABLE,NUMERIC_SCALE,NUMERIC_PRECISION,CHARACTER_MAXIMUM_LENGTH,DATA_TYPE');
         $form->hidden('TABLE_NAME');
-        $form->raw('model_namespace', 'model命名空间')->value('<b>app\\' . Module::getInstance()->config('model_namespace') . '\\model\\</b>可在扩展配置中修改');
-        $form->text('controller', 'Controller名称')->default(ucfirst(strtolower(Str::studly($table))))->help('支持二级目录，如：shop/order');
-        $form->text('controller_title', '控制器注释')->default($data['TABLE_COMMENT'])->required();
+        $form->raw('model_namespace', __admin_lang('model_namespace'))->value('<b>app\\' . Module::getInstance()->config('model_namespace') . '\\model\\</b>' . __admin_lang('help_model_namespace'));
+        $form->text('controller')->default(ucfirst(strtolower(Str::studly($table))))->help(__admin_lang('help_controller_name'));
+        $form->text('controller_title')->default($data['TABLE_COMMENT'])->required();
         $form->hidden('model_title')->default($data['TABLE_COMMENT']);
 
-        $form->switchBtn('table_build', '表格生成')->default(1);
-        $form->checkbox('table_toolbars', '表格工具')->options(['add' => '添加', 'delete' => '批量删除', 'export' => '导出', 'enable' => '批量禁用/启用', 'import' => '导入'])
-            ->default('add,delete,export')->checkallBtn()->help('未选择任何一项则禁用工具栏');
-        $form->checkbox('table_actions', '表格动作')->options(['edit' => '编辑', 'view' => '查看', 'delete' => '删除', 'enable' => '禁用/启用'])
-            ->default('edit,view,delete')->checkallBtn()->help('未选择任何一项则禁用动作栏');
-        $form->text('enable_field', '禁用/启用字段名称')->help('若使用[禁用/启用]工具栏、动作栏');
+        $form->switchBtn('table_build')->default(1);
+        $form->checkbox('table_toolbars')->options(['add' => __admin_lang('btn_add'), 'delete' => __admin_lang('btn_delete'), 'export' => __admin_lang('btn_export'), 'enable' => __admin_lang('btn_enable'), 'import' => __admin_lang('btn_import')])
+            ->default('add,delete,export')->checkallBtn()->help(__admin_lang('help_table_toolbars'));
+        $form->checkbox('table_actions')->options(['edit' => __admin_lang('btn_edit'), 'view' => __admin_lang('btn_view'), 'delete' => __admin_lang('btn_delete'), 'enable' => __admin_lang('btn_enable')])
+            ->default('edit,view,delete')->checkallBtn()->help(__admin_lang('help_table_actions'));
+        $form->text('enable_field', __admin_lang('enable_field'))->help(__admin_lang('help_enable_field'));
 
         foreach ($fields as &$field) {
             $field['DISPLAYER_TYPE'] = 'show';
@@ -266,13 +268,13 @@ class Creator extends Controller
 
         $form->items('TABLE_FIELDS', ' ')->dataWithId($fields, 'COLUMN_NAME')->size(0, 12)->showLabel(false)
             ->with(
-                $form->text('COLUMN_NAME', '字段名')->readonly(),
-                $form->text('COLUMN_TYPE', '字段类型')->readonly()->getWrapper()->addStyle('width:140px;'),
-                $form->text('COLUMN_COMMENT', '字段注释')->readonly(),
-                $form->select('DISPLAYER_TYPE', '生成类型')->texts(array_keys(Wrapper::getDisplayersMap()))
-                    ->beforOptions(['_' => '无', 'belongsTo' => 'belongsTo'])->required(),
-                $form->checkbox('ATTR', '属性')->options(['sortable' => '排序', 'search' => '搜索']),
-                $form->text('FIELD_RELATION', '其他信息')
+                $form->text('COLUMN_NAME')->readonly(),
+                $form->text('COLUMN_TYPE')->readonly()->getWrapper()->addStyle('width:140px;'),
+                $form->text('COLUMN_COMMENT')->readonly(),
+                $form->select('DISPLAYER_TYPE')->texts(array_keys(Wrapper::getDisplayersMap()))
+                    ->beforOptions(['_' => __admin_lang('label_none'), 'belongsTo' => 'belongsTo'])->required(),
+                $form->checkbox('ATTR')->options(['sortable' => __admin_lang('label_sortable'), 'search' => __admin_lang('label_search')]),
+                $form->text('FIELD_RELATION')
             )->canNotAddOrDelete();
 
         foreach ($fields as &$field) {
@@ -340,16 +342,16 @@ class Creator extends Controller
             }
         }
 
-        $form->switchBtn('form_build', '表单生成')->default(1);
+        $form->switchBtn('form_build')->default(1);
         $form->items('FORM_FIELDS', ' ')->dataWithId($fields, 'COLUMN_NAME')->size(0, 12)->showLabel(false)
             ->with(
-                $form->text('COLUMN_NAME', '字段名')->readonly(),
-                $form->text('COLUMN_TYPE', '字段类型')->readonly()->getWrapper()->addStyle('width:140px;'),
-                $form->text('COLUMN_COMMENT', '字段注释')->readonly(),
-                $form->select('DISPLAYER_TYPE', '生成类型')->texts(array_keys(Wrapper::getDisplayersMap()))
-                    ->beforOptions(['_' => '无', 'belongsTo' => 'belongsTo'])->required(),
-                $form->checkbox('ATTR', '属性')->options(['required' => '必填']),
-                $form->text('FIELD_RELATION', '其他信息')
+                $form->text('COLUMN_NAME')->readonly(),
+                $form->text('COLUMN_TYPE')->readonly()->getWrapper()->addStyle('width:140px;'),
+                $form->text('COLUMN_COMMENT')->readonly(),
+                $form->select('DISPLAYER_TYPE')->texts(array_keys(Wrapper::getDisplayersMap()))
+                    ->beforOptions(['_' => __admin_lang('label_none'), 'belongsTo' => 'belongsTo'])->required(),
+                $form->checkbox('ATTR')->options(['required' => __admin_lang('label_required')]),
+                $form->text('FIELD_RELATION')
             )->canNotAddOrDelete();
     }
 
@@ -364,14 +366,14 @@ class Creator extends Controller
         $data = request()->post();
 
         if ($data['table_build'] == 0 && $data['form_build'] == 0) {
-            $this->error('请选择创建表格或表单');
+            $this->error(__admin_lang('msg_select_table_or_form'));
         }
 
         $tableToolbars = $data['table_toolbars'] ?? [];
         $tableActions = $data['table_actions'] ?? [];
 
         if ($data['form_build'] == 0 && (in_array('add', $tableToolbars) || in_array('edit', $tableActions) || in_array('view', $tableActions))) {
-            $this->error('有添加/删除/查看时必须生成表单[form]');
+            $this->error(__admin_lang('msg_form_required'));
         }
 
         $this->creatorLogic->make($data, $this->prefix, Module::getInstance()->config('model_namespace'));
@@ -388,13 +390,13 @@ class Creator extends Controller
 
             $controllerName = ucfirst(strtolower(Str::studly($mch[2])));
         } else {
-            $this->error('控制器名称有误');
+            $this->error(__admin_lang('msg_controller_name_error'));
         }
 
         $fileName = $dir . $controllerName . '.php';
 
         if (!$this->creatorLogic->saveFile($dir, $fileName, implode(PHP_EOL, $this->creatorLogic->getLins()))) {
-            $this->error('控制器文件保失败：' . $fileName);
+            $this->error(sprintf(__admin_lang('msg_controller_file_save_failed'), $fileName));
         }
 
         $modelNamespace = '';
@@ -439,9 +441,9 @@ class Creator extends Controller
         }
 
         if ($res) {
-            return $this->builder()->layer()->closeRefresh(1, '生成控制器成功，文件保存在：' . $fileName);
+            return $this->builder()->layer()->closeRefresh(1, sprintf(__admin_lang('msg_controller_generate_success'), $fileName));
         } else {
-            return $this->builder()->layer()->closeRefresh(1, '生成控制器成功，文件保存在：' . $fileName . '，model文件生成失败');
+            return $this->builder()->layer()->closeRefresh(1, sprintf(__admin_lang('msg_controller_model_generate_success'), $fileName));
         }
     }
 
@@ -454,22 +456,22 @@ class Creator extends Controller
     {
         $table = $this->table;
 
-        $table->show('TABLE_NAME', '表名');
-        $table->show('TABLE_COMMENT', '表注释');
-        $table->raw('TABLE_ROWS', '记录条数');
-        $table->show('AUTO_INCREMENT', '自增id');
-        $table->show('CREATE_TIME', '创建时间');
-        $table->raw('TABLE_RELATIONS', '表关联');
+        $table->show('TABLE_NAME');
+        $table->show('TABLE_COMMENT');
+        $table->raw('TABLE_ROWS');
+        $table->show('AUTO_INCREMENT');
+        $table->show('CREATE_TIME');
+        $table->raw('TABLE_RELATIONS');
 
         $table->getToolbar()
-            ->btnLink(url('scanModels'), '模型关联扫描', 'btn-warning', 'mdi-search-web', 'title="查找模型中手动定义的关联并存入数据库"')
+            ->btnLink(url('scanModels'), __admin_lang('btn_scan_models'), 'btn-warning', 'mdi-search-web', 'title="' . __admin_lang('page_scan_models') . '"')
             ->btnRefresh()
             ->btnToggleSearch();
 
         $table->getActionbar()
-            ->btnEdit('', '生成', 'btn-success', 'mdi-code-braces', 'title="代码生成" data-layer-size="1210px,98%"')
-            ->btnLink('relations', url('relations', ['id' => '__data.pk__']), '关联', 'btn-info', 'mdi-link-variant', 'title="设置表关联" data-layer-size="1210px,98%"')
-            ->btnLink('lang', url('lang', ['id' => '__data.pk__']), '翻译', 'btn-danger', 'mdi-translate', 'title="生成翻译文件"');
+            ->btnEdit('', __admin_lang('btn_generate'), 'btn-success', 'mdi-code-braces', 'title="' . __admin_lang('btn_generate') . '" data-layer-size="1210px,98%"')
+            ->btnLink('relations', url('relations', ['id' => '__data.pk__']), __admin_lang('btn_relations'), 'btn-info', 'mdi-link-variant', 'title="' . __admin_lang('page_table_relations') . '" data-layer-size="1210px,98%"')
+            ->btnLink('lang', url('lang', ['id' => '__data.pk__']), __admin_lang('btn_lang'), 'btn-danger', 'mdi-translate', 'title="' . __admin_lang('page_lang_gen') . '"');
 
         $table->useCheckbox(false);
 
@@ -480,7 +482,7 @@ class Creator extends Controller
                 $names[] = '<label class="label label-dark">' . $rl . '</label>';
             }
 
-            $d['TABLE_RELATIONS'] = count($names) ? implode('、', $names) : '<label class="label label-default">暂无表关联</label>';
+            $d['TABLE_RELATIONS'] = count($names) ? implode('、', $names) : '<label class="label label-default">' . __admin_lang('label_no_relations') . '</label>';
         }
     }
 
@@ -500,7 +502,7 @@ class Creator extends Controller
         $logic = new CreatorLogic;
         $logic->scanModelsForNamespace($modelNamespace);
 
-        return $this->builder()->layer()->closeRefresh(1, '已扫描');
+        return $this->builder()->layer()->closeRefresh(1, __admin_lang('msg_scan_done'));
     }
 
     /**
@@ -512,16 +514,16 @@ class Creator extends Controller
     {
         $id = input('id');
 
-        $builder = $this->builder($this->pageTitle, '表关联');
+        $builder = $this->builder($this->pageTitle, __admin_lang('page_table_relations'));
         $protectedTables = $this->getProtectedTables();
         if (in_array($id, $protectedTables)) {
-            return $builder->layer()->close(0, '此表不能允许此操作');
+            return $builder->layer()->close(0, __admin_lang('msg_table_not_allowed_op'));
         }
 
         $tableInfo = $this->dbLogic->getTableInfo($id);
 
         if (!$tableInfo) {
-            return $builder->layer()->close(0, '数据不存在');
+            return $builder->layer()->close(0, __admin_lang('msg_data_not_exists'));
         }
 
         $modelNamespace = '';
@@ -564,68 +566,68 @@ class Creator extends Controller
 
             $form = $builder->form();
 
-            $form->tab('关联设置');
+            $form->tab(__admin_lang('relations'));
 
-            $form->show('TABLE_NAME', '表名称')->value($id);
-            $form->raw('model_namespace', 'model命名空间')->value('<b>app\\' . Module::getInstance()->config('model_namespace') . '\\model\\</b>可在扩展配置中修改');
+            $form->show('TABLE_NAME')->value($id);
+            $form->raw('model_namespace')->value('<b>app\\' . Module::getInstance()->config('model_namespace') . '\\model\\</b>' . __admin_lang('help_model_namespace'));
             if (is_file($modelFileName)) {
-                $form->raw('tips', '提示')->value('已存在模型文件，将被覆盖：<b>' . str_replace(App::getRootPath(), '', $modelFileName) . '</b>');
+                $form->raw('tips')->value(sprintf(__admin_lang('msg_model_exists_overwrite'), '<b>' . str_replace(App::getRootPath(), '', $modelFileName) . '</b>'));
             }
-            $form->text('model_title', 'model注释')->default($tableInfo['TABLE_COMMENT'])->required();
+            $form->text('model_title')->default($tableInfo['TABLE_COMMENT'])->required();
 
-            $form->items('relations', '关联')->dataWithId($relations)->size(12, 12)->with(
-                $form->select('field_name', '字段')->required()->optionsData($fields, 'COLUMN_NAME', 'COLUMN_NAME'),
-                $form->select('relation_type', '关联类型')->required()->options(['belongs_to' => 'belongsTo', 'has_one' => 'hasOne', 'has_many' => 'hasMany'])->default('belongs_to'),
-                $form->select('foreign_table_name', '关联表')->required()->optionsData($tables, 'TABLE_NAME', 'TABLE_NAME')->withNext(
-                    $form->select('relation_key', '关联字段')->required()->dataUrl(url('slecltfields'), 'COLUMN_NAME', 'COLUMN_NAME')
+            $form->items('relations')->dataWithId($relations)->size(12, 12)->with(
+                $form->select('field_name')->required()->optionsData($fields, 'COLUMN_NAME', 'COLUMN_NAME'),
+                $form->select('relation_type')->required()->options(['belongs_to' => 'belongsTo', 'has_one' => 'hasOne', 'has_many' => 'hasMany'])->default('belongs_to'),
+                $form->select('foreign_table_name')->required()->optionsData($tables, 'TABLE_NAME', 'TABLE_NAME')->withNext(
+                    $form->select('relation_key')->required()->dataUrl(url('slecltfields'), 'COLUMN_NAME', 'COLUMN_NAME')
                 ),
-                $form->text('relation_name', '关联名称')
+                $form->text('relation_name')
             );
 
 
-            $form->tab('示列&说明');
-            $form->raw('demo', '')->size(12, 12)->showLabel(false)->value('实列：<pre>' .
+            $form->tab(__admin_lang('help_relation_demo'));
+            $form->raw('demo', '')->size(12, 12)->showLabel(false)->value(__admin_lang('label_example') . '：<pre>' .
                 '
-//产品基本信息表
+//Product basic info table
 class ShopGoods extends Model
 {
     protected $name = \'shop_goods\';
 
-    public function category()    //category:关联名称，若不填写，则根据关联表名转驼峰得到：shopCategory.
+    public function category()    //category: relation name. If not set, derived from the related table name in camelCase: shopCategory.
     {
-        //     category_id  : 字段         [shop_goods]表中的[category_id]字段
-        //              id  : 关联字段      [shop_category]表中的[id]字段
-        //       belongsTo  : 关联类型
-        //    shop_category : 关联表        [ShopCategory]模式对应的表名[shop_category]
+        //     category_id  : field         [category_id] field in [shop_goods] table
+        //              id  : related field  [id] field in [shop_category] table
+        //       belongsTo  : relation type
+        //    shop_category : related table   table name [shop_category] corresponding to [ShopCategory] model
         return \$this->belongsTo(ShopCategory::class, \'category_id\', \'id\');
     }
 
-    public function extendInfo()   // extendInfo:关联名称，若不填写，则根据关联表明转驼峰得到：shopGoodsExtend.
+    public function extendInfo()   // extendInfo: relation name. If not set, derived from the related table name in camelCase: shopGoodsExtend.
     {
-        //              id   : 字段        [shop_goods]表中的[id]字段
-        //        goods_id   : 关联字段    [shop_goods_extend]表中的[goods_id]字段
-        //          hasOne   : 关联类型
-        // shop_goods_extend : 关联表      [ShopGoodsExtend]模式对应的表名[shop_goods_extend]
+        //              id   : field         [id] field in [shop_goods] table
+        //        goods_id   : related field  [goods_id] field in [shop_goods_extend] table
+        //          hasOne   : relation type
+        // shop_goods_extend : related table   table name [shop_goods_extend] corresponding to [ShopGoodsExtend] model
         return \$this->hasOne(ShopGoodsExtend::class, \'extend_id\', \'id\');
     }
 
     // $data = ShopGoods::where(\'id\', 1)->find();
-    // 对于驼峰命名的关联如[shopCategory]，获取时有3种方式：
-    // 1.不变化       => $data[\'shopCategory\']；
-    // 2.全部小写     => $data[\'shopcategory\']；（php特性：函数名、方法名不区分大小写）
-    // 3.驼峰转下划线  => $data[\'shop_category\']；
-    //使用
-    //$table->show(\'shopCategory.name\', \'分类\');
-    //$form->show(\'shop_category.name\', \'分类\');
+    // For camelCase relations like [shopCategory], there are 3 ways to access:
+    // 1.Keep original    => $data[\'shopCategory\'];
+    // 2.All lowercase    => $data[\'shopcategory\']; (PHP feature: function/method names are case-insensitive)
+    // 3.Camel to snake   => $data[\'shop_category\'];
+    //Usage
+    //$table->show(\'shopCategory.name\', \'Category\');
+    //$form->show(\'shop_category.name\', \'Category\');
 }
 
-//产品分类表
+//Product category table
 class ShopCategory extends Model
 {
     protected $name = \'shop_category\';
 }
 
-//产品扩展信息表
+//Product extension info table
 class ShopGoodsExtend extends Model
 {
     protected $name = \'shop_goods_extend\';
@@ -633,7 +635,7 @@ class ShopGoodsExtend extends Model
 
 '
                 . '</pre>')
-                ->help('设置是单向的，在`shop_goods`表中设置的关联，将在[ShopGoods]模型中添加[category]、[extendInfo]两个关联，但不会在[ShopCategory]、[ShopGoodsExtend]模型中生成相对于[ShopGoods]的关联');
+                ->help(__admin_lang('help_relation_demo'));
 
             return $builder->render();
         }
@@ -649,20 +651,20 @@ class ShopGoodsExtend extends Model
                 $dataModel = new TableRelation;
 
                 $result = $this->validate($pdata, [
-                    'field_name|字段' => 'require',
-                    'relation_type|关联类型' => 'require',
-                    'foreign_table_name|关联表' => 'require',
-                    'relation_key|关联字段' => 'require',
-                    'relation_name|关联名称' => 'regex:[a-z0-9A-Z_]{0,}',
+                    'field_name|' . __admin_lang('field_name') => 'require',
+                    'relation_type|' . __admin_lang('relation_type') => 'require',
+                    'foreign_table_name|' . __admin_lang('foreign_table_name') => 'require',
+                    'relation_key|' . __admin_lang('relation_key') => 'require',
+                    'relation_name|' . __admin_lang('relation_name') => 'regex:[a-z0-9A-Z_]{0,}',
                 ]);
 
                 if (true !== $result) {
-                    $errors[] = '字段[' . $pdata['field_name'] . ']' . $result;
+                    $errors[] = '[' . $pdata['field_name'] . ']' . $result;
                     continue;
                 }
 
                 if ($pdata['local_table_name'] == $pdata['foreign_table_name'] && $pdata['field_name'] == $pdata['relation_key']) {
-                    $errors[] = '字段[' . $pdata['field_name'] . ']' . '关联错误';
+                    $errors[] = '[' . $pdata['field_name'] . ']' . __admin_lang('msg_field_relation_error');
                     continue;
                 }
 
@@ -686,7 +688,7 @@ class ShopGoodsExtend extends Model
                     if ($res) {
                         $changes += 1;
                     } else {
-                        $errors[] = '字段[' . $pdata['field_name'] . ']保存出错';
+                        $errors[] = '[' . $pdata['field_name'] . ']' . __admin_lang('msg_field_save_error');
                     }
                 } else {
                     if ($is_del) {
@@ -704,7 +706,7 @@ class ShopGoodsExtend extends Model
                         if ($res) {
                             $changes += 1;
                         } else {
-                            $errors[] = '字段[' . $pdata['field_name'] . ']保存出错';
+                            $errors[] = '[' . $pdata['field_name'] . ']' . __admin_lang('msg_field_save_error');
                         }
                     }
                 }
@@ -712,10 +714,10 @@ class ShopGoodsExtend extends Model
 
             if ($changes) {
                 if (!empty($errors)) {
-                    $this->error('保存关联信息失败-' . implode('<br>', $errors));
+                    $this->error(sprintf(__admin_lang('msg_save_relation_failed'), implode('<br>', $errors)));
                 }
             } else {
-                $this->error('保存关联信息失败-' . implode('<br>', $errors));
+                $this->error(sprintf(__admin_lang('msg_save_relation_failed'), implode('<br>', $errors)));
             }
         }
 
@@ -735,9 +737,9 @@ class ShopGoodsExtend extends Model
         }
 
         if ($res) {
-            return $builder->layer()->closeRefresh(1, '保存成功-' . $modelFileName);
+            return $builder->layer()->closeRefresh(1, sprintf(__admin_lang('msg_save_success'), $modelFileName));
         } else {
-            $this->error('保存Model文件失败-' . $modelFileName);
+            $this->error(sprintf(__admin_lang('msg_model_file_save_failed'), $modelFileName));
         }
     }
 
@@ -784,10 +786,10 @@ class ShopGoodsExtend extends Model
     {
         $id = input('id');
 
-        $builder = $this->builder($this->pageTitle, '翻译生成');
+        $builder = $this->builder($this->pageTitle, __admin_lang('page_lang_gen'));
         $protectedTables = $this->getProtectedTables();
         if (in_array($id, $protectedTables)) {
-            return $builder->layer()->close(0, '此表不能允许生成代码');
+            return $builder->layer()->close(0, __admin_lang('msg_table_not_allowed'));
         }
         $fields = $this->dbLogic->getFields($id, 'COLUMN_NAME,COLUMN_TYPE,COLUMN_COMMENT');
 
@@ -806,14 +808,14 @@ class ShopGoodsExtend extends Model
         $filePath = $ldir . strtolower($modelName) . '.php';
 
         if (!$tableInfo) {
-            return $builder->layer()->close(0, '数据不存在');
+            return $builder->layer()->close(0, __admin_lang('msg_data_not_exists'));
         }
 
         if (request()->isGet()) {
 
             $form = $builder->form();
 
-            $form->show('TABLE_NAME', '表名称')->value($id);
+            $form->show('TABLE_NAME')->value($id);
             $form->hidden('controller_title')->value($tableInfo['TABLE_COMMENT'])->required();
 
             if (is_file($filePath)) { //翻译文件存在，读取
@@ -840,26 +842,26 @@ class ShopGoodsExtend extends Model
                     }
                 }
 
-                $form->raw('tips', '提示')->value('已存在翻译文件，将覆被盖：<b>' . str_replace(App::getRootPath(), '', $filePath) . '</b>');
+                $form->raw('tips')->value(sprintf(__admin_lang('msg_lang_exists_overwrite'), '<b>' . str_replace(App::getRootPath(), '', $filePath) . '</b>'));
             } else {
                 foreach ($fields as &$field) {
                     $field['__can_delete__'] = 0;
                 }
             }
 
-            $form->items('FORM_FIELDS', '翻译')->dataWithId($fields, 'COLUMN_NAME')->size(12, 12)
+            $form->items('FORM_FIELDS', ' ')->dataWithId($fields, 'COLUMN_NAME')->size(12, 12)
                 ->with(
                     //不推荐rendering的方式，使用上面设置__readonly__fields__的方式代替
-                    $form->text('COLUMN_NAME', '字段名')->rendering(function ($field) {
+                    $form->text('COLUMN_NAME')->rendering(function ($field) {
                         if (!isset($field->data['__can_delete__']) || $field->data['__can_delete__'] == 0) {
                             $field->readonly();
                         } else {
                             $field->readonly(false);
                         }
                     })->required(),
-                    $form->show('COLUMN_TYPE', '字段类型')->default('--'),
-                    $form->text('COLUMN_COMMENT', '字段注释')->required()
-                )->help('可以添加或删除数据表中不存在字段的键值对');
+                    $form->show('COLUMN_TYPE')->default('--'),
+                    $form->text('COLUMN_COMMENT')->required()
+                )->help(__admin_lang('help_lang_items'));
 
             $this->builder()->addScript("$('#items-FORM_FIELDS-temple .row-COLUMN_NAME').removeAttr('readonly');");
 
@@ -880,9 +882,9 @@ class ShopGoodsExtend extends Model
         $res = file_put_contents($filePath, implode(PHP_EOL, $this->creatorLogic->getLangLines($data, $newData)));
 
         if ($res) {
-            return $this->builder()->layer()->closeRefresh(1, '生成成功，翻译文件保存在：' . $filePath);
+            return $this->builder()->layer()->closeRefresh(1, sprintf(__admin_lang('msg_lang_generate_success'), $filePath));
         } else {
-            $this->error('翻译文件保存失败');
+            $this->error(__admin_lang('msg_lang_file_save_failed'));
         }
     }
 }

@@ -115,8 +115,8 @@ class ExtensionLogic
     public function installExtend($zipFilePath, $install)
     {
         if (!preg_match('/.+?\.zip$/i', $zipFilePath)) {
-            trace('不是zip文件：' . $zipFilePath);
-            $this->errors[] = '不是zip文件：' . $zipFilePath;
+            trace(sprintf(__admin_lang('msg_not_zip_file'), $zipFilePath));
+            $this->errors[] = sprintf(__admin_lang('msg_not_zip_file'), $zipFilePath);
             return false;
         }
 
@@ -126,8 +126,8 @@ class ExtensionLogic
             if ($zip->open($zipFilePath) === true) {
                 $extendName = $zip->getNameIndex(0);
                 if (!preg_match('/^\w+\/$/', $extendName)) {
-                    trace('压缩包格式有误，外层至少有一层目录');
-                    $this->errors[] = '压缩包格式有误，外层至少有一层目录';
+                    trace(__admin_lang('msg_zip_format_error'));
+                    $this->errors[] = __admin_lang('msg_zip_format_error');
 
                     return false;
                 }
@@ -156,8 +156,8 @@ class ExtensionLogic
                 $extendPath = $dir . $extendName;
 
                 if ($install == 1 && is_dir($extendPath)) {
-                    trace('扩展目录已存在：extend' . DIRECTORY_SEPARATOR . $basepath . $extendName . '，可能是扩展重复，或不同的两个扩展目录冲突');
-                    $this->errors[] = '扩展目录已存在：extend' . DIRECTORY_SEPARATOR . $basepath . $extendName . '，可能是扩展重复，或不同的两个扩展目录冲突';
+                    trace(sprintf(__admin_lang('msg_ext_dir_exists'), 'extend' . DIRECTORY_SEPARATOR . $basepath . $extendName));
+                    $this->errors[] = sprintf(__admin_lang('msg_ext_dir_exists'), 'extend' . DIRECTORY_SEPARATOR . $basepath . $extendName);
 
                     return false;
                 }
@@ -174,13 +174,13 @@ class ExtensionLogic
                 $zip->close();
                 return $res;
             } else {
-                trace('打开zip文件失败！' . $zipFilePath);
-                $this->errors[] = '打开zip文件失败！' . $zipFilePath;
+                trace(sprintf(__admin_lang('msg_zip_open_failed'), $zipFilePath));
+                $this->errors[] = sprintf(__admin_lang('msg_zip_open_failed'), $zipFilePath);
                 return false;
             }
         } catch (\Throwable $e) {
             trace($e->__toString());
-            $this->errors[] = '系统错误-' . $e->getMessage();
+            $this->errors[] = sprintf(__admin_lang('msg_system_error'), $e->getMessage());
             return false;
         }
     }
