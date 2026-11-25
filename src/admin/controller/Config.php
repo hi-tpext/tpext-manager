@@ -603,14 +603,14 @@ EOT;
             $values = $__saving__($data, $values); //匿名方法，在数据保存前再处理一下。
         }
 
-        $this->dataModel::clearCache($configKey);
-
+        $res = false;
         if ($this->dataModel->where(['key' => $configKey])->find()) {
-            return $this->dataModel->save(['config' => json_encode($values, JSON_UNESCAPED_UNICODE)], ['key' => $configKey]);
+            $res = $this->dataModel->isUpdate(true, ['key' => $configKey])->save(['config' => json_encode($values, JSON_UNESCAPED_UNICODE)]);
+        } else {
+            $filePath = str_replace(App::getRootPath(), '', $filePath);
+            $res = $this->dataModel->isUpdate(false)->save(['key' => $configKey, 'file' => $filePath, 'config' => json_encode($values, JSON_UNESCAPED_UNICODE)]);
         }
-
-        $filePath = str_replace(App::getRootPath(), '', $filePath);
-
-        return $this->dataModel->save(['key' => $configKey, 'file' => $filePath, 'config' => json_encode($values, JSON_UNESCAPED_UNICODE)]);
+        WebConfig::clearCache($configKey);
+        return $res;
     }
 }
