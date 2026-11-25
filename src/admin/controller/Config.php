@@ -317,7 +317,7 @@ EOT;
             if (!$theConfig) {
                 if ($instance) {
                     unset($default['__config__'], $default['__saving__']);
-                    
+
                     $this->dataModel->create(
                         [
                             'key' => $instance->getId(),
@@ -606,14 +606,16 @@ EOT;
             $values = $__saving__($data, $values); //匿名方法，在数据保存前再处理一下。
         }
 
-        $this->dataModel::clearCache($configKey);
-
+        $res = false;
         if ($exist = $this->dataModel->where(['key' => $configKey])->find()) {
-            return $exist->force()->save(['config' => json_encode($values, JSON_UNESCAPED_UNICODE)]);
+            $res = $exist->force()->save(['config' => json_encode($values, JSON_UNESCAPED_UNICODE)]);
+        } else {
+            $filePath = str_replace(App::getRootPath(), '', $filePath);
+            $res = $this->dataModel->exists(false)->save(['key' => $configKey, 'file' => $filePath, 'config' => json_encode($values, JSON_UNESCAPED_UNICODE)]);
         }
 
-        $filePath = str_replace(App::getRootPath(), '', $filePath);
+        WebConfig::clearCache($configKey);
 
-        return $this->dataModel->exists(false)->save(['key' => $configKey, 'file' => $filePath, 'config' => json_encode($values, JSON_UNESCAPED_UNICODE)]);
+        return $res;
     }
 }
